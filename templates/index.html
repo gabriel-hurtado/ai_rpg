@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Home - {{ super() }}{% endblock %}
+
+{% block content %}
+
+    <!-- Hero Section -->
+    <section id="hero" class="d-flex align-items-center text-center py-5 px-3 text-white overflow-hidden"> {# Overflow hidden for effects #}
+        <div class="container position-relative" style="z-index: 2;"> {# z-index above background effects #}
+            <div data-aos="fade-down">
+                <h1 class="display-2 fw-bold mb-3">AI-Powered <span class="highlight-gradient">Homebrew</span></h1>
+                <p class="lead mb-4 mx-auto fw-light" style="max-width: 650px;">Instantly generate limitless TTRPG content. Build unique worlds, compelling characters, and thrilling adventures with your AI co-creator.</p>
+            </div>
+            <a href="#pricing" class="btn btn-lg custom-btn custom-btn-primary shadow-lg fw-bold mt-3" data-aos="fade-up" data-aos-delay="300">
+                <i class="bi bi-magic me-2"></i>Start Creating Now <i class="bi bi-chevron-right ms-1"></i>
+            </a>
+        </div>
+        <!-- Background Shapes/Effects (Optional) -->
+        <div class="hero-shapes"></div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-5 section-bg-accent">
+        <div class="container">
+            <h2 class="text-center mb-5 display-5 text-white" data-aos="fade-up">Your Creative Toolkit</h2>
+            <div class="row g-4 justify-content-center">
+                 <div class="col-lg-4 col-md-6" data-aos="zoom-in-up" data-aos-delay="100">
+                    <div class="feature-card modern-card p-4 text-center">
+                        <div class="feature-icon mb-3"><i class="bi bi-brightness-high-fill"></i></div> {# New icon #}
+                        <h4 class="fw-bold mb-2">World Genesis</h4>
+                        <p class="small">Craft unique settings, cultures, histories, and maps from simple prompts.</p>
+                    </div>
+                 </div>
+                 <div class="col-lg-4 col-md-6" data-aos="zoom-in-up" data-aos-delay="250">
+                     <div class="feature-card modern-card p-4 text-center">
+                        <div class="feature-icon mb-3"><i class="bi bi-people-fill"></i></div> {# New icon #}
+                        <h4 class="fw-bold mb-2">Character Forge</h4>
+                        <p class="small">Generate diverse NPCs & Monsters with deep personalities and motivations.</p>
+                    </div>
+                 </div>
+                 <div class="col-lg-4 col-md-6" data-aos="zoom-in-up" data-aos-delay="400">
+                     <div class="feature-card modern-card p-4 text-center">
+                        <div class="feature-icon mb-3"><i class="bi bi-journal-richtext"></i></div> {# New icon #}
+                        <h4 class="fw-bold mb-2">Adventure Crafting</h4>
+                        <p class="small">Design plot hooks, balanced encounters, custom items, spells, and rules.</p>
+                    </div>
+                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it Works Section -->
+     <section id="how-it-works" class="py-5">
+        <div class="container">
+             <h2 class="text-center mb-5 display-5" data-aos="fade-up">Launch Your Campaign Fast</h2>
+            <div class="row text-center g-5 align-items-center"> {# Larger gap, align items #}
+                <div class="col-md-4" data-aos="fade-right" data-aos-delay="100">
+                    <div class="step-icon mb-3"><i class="bi bi-person-plus-fill"></i></div>
+                    <h4 class="fw-bold fs-5">1. Sign Up Free</h4> {# Smaller heading #}
+                    <p class="text-muted small">Quick account creation.</p>
+                </div>
+                 <div class="col-md-4" data-aos="fade-up" data-aos-delay="250">
+                    <div class="step-icon mb-3"><i class="bi bi-credit-card-2-front-fill"></i></div>
+                    <h4 class="fw-bold fs-5">2. Get Credit</h4>
+                    <p class="text-muted small">One-time $10 purchase.</p>
+                </div>
+                 <div class="col-md-4" data-aos="fade-left" data-aos-delay="400">
+                    <div class="step-icon mb-3"><i class="bi bi-lightbulb-fill"></i></div>
+                    <h4 class="fw-bold fs-5">3. Create Magic</h4>
+                    <p class="text-muted small">Generate endless content.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-5 section-bg-accent">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-6" data-aos="flip-up">
+                    <div class="card pricing-card modern-card text-center border-0 overflow-hidden"> {# Overflow hidden for effect #}
+                         <div class="card-header pricing-header pt-4 pb-3 border-0">
+                            <h4 class="my-0 fw-bold text-primary">Homebrew Build Credit</h4>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="pricing-tag mb-4">
+                                $10 <span class="pricing-term">/ Project</span>
+                            </div>
+                            <ul class="list-unstyled mt-3 mb-4 text-center small"> {# Centered list #}
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Full AI Tool Access</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Extensive Generation*</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Build a Complete Homebrew</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>No Subscriptions</li>
+                            </ul>
+                            <button type="button" class="w-100 btn btn-lg custom-btn custom-btn-primary rounded-pill purchase-button" id="purchase-button"><i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access</button>
+                            <small class="d-block text-muted mt-3 small">*Approx. 100 AI interactions.</small>
+                        </div>
+                        <div class="pricing-glow"></div> {# For hover effect #}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI Tool Placeholder Section -->
+     <section id="ai-tool" class="py-5 text-center">
+        <div class="container" data-aos="fade-up">
+            <h2 class="mb-4 display-5">The Adventure Forge</h2>
+            <div id="tool-access-area">
+                <p class="lead text-muted mb-4">Please <a href="#" class="link-primary">log in</a> and purchase credit to unleash the AI.</p>
+                <div class="tool-placeholder modern-card p-5 mt-4 mx-auto" style="max-width: 700px;">
+                    <i class="bi bi-box-fill display-1 text-primary opacity-50"></i>
+                    <p class="mt-3 text-muted">Your AI generation tools will appear here.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+{% endblock %}
+
+{% block scripts %}
+    {# Base scripts are included automatically #}
+    <script>
+        console.log("Index page v3 scripts loaded");
+        // Add any specific JS for this page here later
+        // Purchase button placeholder listener from previous example
+        const purchaseButton = document.getElementById('purchase-button');
+        if (purchaseButton) {
+            purchaseButton.addEventListener('click', () => {
+                console.log("Purchase button clicked - Stripe integration needed!");
+                alert("Payment integration coming soon!");
+            });
+        }
+         // Auth link update function placeholder (same as before)
+         function updateAuthLink(isLoggedIn, userName = '') { /* ... function code ... */ }
+    </script>
+{% endblock %}

@@ -1,0 +1,3 @@
+# AI JDR Project
+
+A web application for ...
