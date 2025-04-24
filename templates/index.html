@@ -112,16 +112,16 @@
 
                 {# AI Generation Form with HTMX attributes #}
                 <form id="ai-generation-form"
-                      class="ai-tool-form mx-auto"
-                      style="max-width: 700px; display: none;" {# Initially hidden #}
-                      hx-post="/api/v1/generate"
-                      hx-target="#ai-result-output"
-                      hx-swap="innerHTML" {# Main result goes here #}
-                      hx-indicator="#ai-loading-indicator"
-                      {# Dynamically add Authorization header using JS helper below #}
-                      hx-headers='js:{"Authorization": "Bearer " + getAuthTokenForHtmx()}'
-                      hx-disabled-elt="#ai-generate-button"
-                      >
+                    class="ai-tool-form mx-auto"
+                    style="max-width: 700px; display: none;"
+                    hx-post="/api/v1/chat/message" 
+                    hx-target="#chat-message-list"  {# Target inner div #}
+                    hx-swap="beforeend"             {# Append new messages #}
+                    hx-indicator="#ai-loading-indicator"
+                    hx-headers='js:{"Authorization": "Bearer " + getAuthTokenForHtmx()}'
+                    hx-disabled-elt="#ai-generate-button"
+                    hx-on::after-request="this.reset()" {# Clear form after request #}
+                    >
                     <div class="mb-3">
                         <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
                         <textarea class="form-control form-control-lg bg-light" id="ai-prompt-input" name="prompt" rows="4" placeholder="Describe the magic item, NPC, location, or encounter you want to generate..." required disabled></textarea>
@@ -140,7 +140,10 @@
                     {# Area where HTMX will place the main AI result #}
                     {# OOB Swaps in the response will update other elements like credits display #}
                     <div id="ai-result-output" class="mt-4 text-start result-area p-4 rounded">
-                        <p class="text-muted small">Your generated content will appear here once you submit a prompt.</p>
+                        <div id="chat-message-list"> {# <<< THIS ID MUST EXIST #}
+                            <p class="text-muted small text-center initial-chat-prompt">Chat history will appear here.</p>
+                        </div>
+                        <div id="chat-error"></div> {# For OOB error swaps #}
                     </div>
                 </form>
 

@@ -1,0 +1,77 @@
+/* static/chat.css */
+
+.chat-container {
+    /* max-height: 60vh; /* Limit height - adjust as needed */
+    height: 65vh; /* Or set a fixed height */
+    overflow-y: auto;  /* Enable vertical scrolling */
+    background-color: var(--color-bg-dark); /* Darker background for chat */
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-md); /* Match other elements */
+    display: flex; /* Use flexbox to push messages down */
+    flex-direction: column; /* Stack messages vertically */
+    /* gap: 0.5rem; /* Optional spacing between messages */
+}
+
+/* Style the inner list where messages are appended */
+#chat-message-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem; /* Space between messages */
+    padding: 1rem; /* Padding inside the scrollable area */
+    flex-grow: 1; /* Allow it to grow */
+}
+
+.chat-message {
+    padding: 0.6rem 1rem; /* Adjust padding */
+    border-radius: var(--border-radius-lg); /* Use larger radius */
+    max-width: 80%; /* Max width of a message bubble */
+    word-wrap: break-word;
+    line-height: 1.5; /* Improve readability in bubbles */
+    box-shadow: var(--shadow-sm);
+}
+.chat-message p { /* Reset paragraph margins inside messages */
+    margin-bottom: 0;
+}
+
+
+.user-message {
+    background: linear-gradient(45deg, var(--color-primary), var(--color-warning)); /* Gold/Yellow gradient */
+    color: var(--color-bg-dark); /* Dark text for contrast */
+    margin-left: auto; /* Align right */
+    border-bottom-right-radius: var(--border-radius-sm); /* Different corner */
+    align-self: flex-end; /* Stick to the right */
+}
+.user-message p, .user-message strong {
+    color: inherit !important;
+}
+.user-message strong {
+    font-weight: var(--font-weight-semibold);
+}
+
+.ai-message {
+    background-color: var(--color-bg-light); /* Card background */
+    color: var(--color-text-primary);
+    margin-right: auto; /* Align left */
+    border-bottom-left-radius: var(--border-radius-sm); /* Different corner */
+    align-self: flex-start; /* Stick to the left */
+}
+ .ai-message p {
+    color: var(--color-text-primary) !important; /* Ensure readable text */
+    font-weight: var(--font-weight-regular); /* Use regular weight for AI response */
+ }
+ .ai-message strong { /* Style the "AI:" label */
+    color: var(--color-secondary) !important; /* Red/Orange label */
+    font-weight: var(--font-weight-semibold);
+ }
+
+/* Styling for error messages within the chat area */
+#chat-error .alert {
+    margin: 0.5rem 0; /* Add some margin to alerts */
+    font-size: 0.9rem;
+}
+
+/* Initial prompt styling */
+.initial-chat-prompt {
+    margin: auto; /* Center the initial prompt */
+    padding: 2rem;
+}
