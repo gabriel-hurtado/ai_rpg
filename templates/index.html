@@ -110,100 +110,89 @@
                 {# This prompt is shown/hidden by auth.js #}
                 <p class="lead text-muted mb-4">Please <a href="#" class="link-primary" id="login-link-tool-placeholder">log in</a> and purchase credit to unleash the AI.</p>
 
-                {# AI Generation Form with HTMX attributes #}
-                <form id="ai-generation-form"
-                    class="ai-tool-form mx-auto"
-                    style="max-width: 700px; display: none;"
-                    hx-post="/api/v1/chat/message" 
-                    hx-target="#chat-message-list"  {# Target inner div #}
-                    hx-swap="beforeend"             {# Append new messages #}
-                    hx-indicator="#ai-loading-indicator"
-                    hx-headers='js:{"Authorization": "Bearer " + getAuthTokenForHtmx()}'
-                    hx-disabled-elt="#ai-generate-button"
-                    hx-on::after-request="this.reset()" {# Clear form after request #}
-                    >
-                    <div class="mb-3">
-                        <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
-                        <textarea class="form-control form-control-lg bg-light" id="ai-prompt-input" name="prompt" rows="4" placeholder="Describe the magic item, NPC, location, or encounter you want to generate..." required disabled></textarea>
-                    </div>
+                 {# --- CHAT HISTORY AREA --- #}
+                 <div id="ai-result-output" class="mb-3 text-start result-area p-3 rounded chat-container"> {# Added mb-3 for spacing #}
+                      <div id="chat-message-list"> {# Inner div for messages #}
+                          <p class="text-muted small text-center initial-chat-prompt">Chat history will appear here.</p>
+                      </div>
+                      <div id="chat-error"></div> {# For OOB error swaps #}
+                 </div>
 
-                    <div class="d-flex justify-content-center align-items-center mb-3">
-                        <button type="submit" id="ai-generate-button" class="btn btn-lg custom-btn custom-btn-secondary" disabled>
-                            <i class="bi bi-magic me-2"></i>Generate
-                        </button>
-                        {# Loading indicator controlled by HTMX #}
-                        <div id="ai-loading-indicator" class="htmx-indicator spinner-border spinner-border-sm ms-3" role="status"> {# Default CSS will hide/show #}
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>
+                 {# --- INPUT FORM AREA (Moved Below) --- #}
+                 <form id="ai-generation-form"
+                       class="ai-tool-form mx-auto"
+                       style="max-width: 700px; display: none;" {# Initially hidden #}
+                       hx-post="/api/v1/chat/message"  {# Correct endpoint #}
+                       hx-target="#chat-message-list"  {# Target inner div #}
+                       hx-swap="beforeend"             {# Append new messages #}
+                       hx-indicator="#ai-loading-indicator"
+                       hx-headers='js:{"Authorization": "Bearer " + getAuthTokenForHtmx()}'
+                       hx-disabled-elt="#ai-generate-button"
+                       {# Reset form after successful request (handled by backend response + htmx swap) #}
+                       {# Optionally use hx-on::after-request="if(event.detail.successful) this.reset()" #}
+                       >
+                     <div class="d-flex align-items-center"> {# Use flexbox for inline layout #}
+                         <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
+                         <textarea class="form-control form-control-lg bg-light me-2" id="ai-prompt-input" name="prompt" rows="1" style="resize: none; height: auto;" placeholder="Enter your prompt here..." required disabled></textarea>
+                         <button type="submit" id="ai-generate-button" class="btn btn-lg custom-btn custom-btn-secondary flex-shrink-0" disabled> {# Secondary style #}
+                             <i class="bi bi-magic"></i> {# Just icon for smaller button #}
+                         </button>
+                         <div id="ai-loading-indicator" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status"> {# Default CSS hides/shows #}
+                             <span class="visually-hidden">Loading...</span>
+                         </div>
+                     </div>
+                 </form>
 
-                    {# Area where HTMX will place the main AI result #}
-                    {# OOB Swaps in the response will update other elements like credits display #}
-                    <div id="ai-result-output" class="mt-4 text-start result-area p-4 rounded">
-                        <div id="chat-message-list"> {# <<< THIS ID MUST EXIST #}
-                            <p class="text-muted small text-center initial-chat-prompt">Chat history will appear here.</p>
-                        </div>
-                        <div id="chat-error"></div> {# For OOB error swaps #}
-                    </div>
-                </form>
-
-            </div>
-        </div>
+            </div> {# End tool-access-area #}
+        </div> {# End container #}
     </section>
 
 {% endblock %}
 
 {% block scripts %}
-    {# Base scripts are inherited via super() call implicit in block definition #}
-    {# We only add scripts SPECIFIC to this page here #}
+    {# Base scripts are inherited #}
+    {{ super() }}
+
+    {# Inline script specific to this page (HTMX helpers & event listeners) #}
     <script>
         console.log("Index page specific scripts loaded");
 
         // Helper function for HTMX to get the current access token
-        // Reads the global variable set by auth.js
         function getAuthTokenForHtmx() {
-            if (window.currentAccessToken) {
-                // console.log("[HTMX Token Helper] Returning stored token.");
+            if (window.currentAccessToken) { // Reads global var set by auth.js
                 return window.currentAccessToken;
             }
-            console.warn("[HTMX Token Helper] No currentAccessToken found in window scope.");
-            return ""; // Return empty string if token isn't available
+            console.warn("[HTMX Token Helper] No currentAccessToken found.");
+            return "";
         }
 
-        // Optional: HTMX Event Listeners for debugging/UI tweaks
+        // Optional: HTMX Event Listeners
         document.body.addEventListener('htmx:afterRequest', function(evt) {
             console.log('HTMX request finished for:', evt.detail.pathInfo.path, 'Success:', evt.detail.successful);
-            if (evt.detail.failed || !evt.detail.successful) {
-                console.error('HTMX request failed:', evt.detail.xhr?.status, evt.detail.xhr?.responseText);
-                // You could display a generic error in a dedicated div if the OOB swap fails
-                 const errorTarget = document.getElementById('htmx-error-target'); // Add this div somewhere
-                 if(errorTarget && evt.detail.xhr?.status !== 403 && evt.detail.xhr?.status !== 400) { // Avoid showing for expected credit/block errors
-                      errorTarget.innerHTML = `<div class="alert alert-danger mt-3">Request failed. Please try again later.</div>`;
-                 }
-            }
-             // Re-enable button manually - hx-disabled-elt sometimes needs help
+             // Re-enable button manually
              const generateButton = document.getElementById('ai-generate-button');
              if (generateButton) { generateButton.disabled = false; }
+
+             if (evt.detail.failed || !evt.detail.successful) {
+                console.error('HTMX request failed:', evt.detail.xhr?.status, evt.detail.xhr?.responseText);
+                const errorTarget = document.getElementById('chat-error');
+                // Avoid showing generic error if backend sent specific error via OOB
+                if(errorTarget && !errorTarget.innerHTML.includes('alert')) {
+                      errorTarget.innerHTML = `<div class="alert alert-danger mt-3 alert-dismissible fade show" role="alert">Request failed (${evt.detail.xhr?.status || 'Network Error'}). Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
+                 }
+            } else {
+                 // If successful, reset the form (unless hx-on handles it)
+                 const form = document.getElementById('ai-generation-form');
+                 if (form) form.reset();
+            }
         });
 
          document.body.addEventListener('htmx:beforeRequest', function(evt) {
             console.log('HTMX request starting for:', evt.detail.pathInfo.path);
-            // Clear previous results or errors?
-            // const resultOutput = document.getElementById('ai-result-output');
-            // if (resultOutput) resultOutput.innerHTML = '';
-            const errorTarget = document.getElementById('htmx-error-target');
-            if(errorTarget) errorTarget.innerHTML = ''; // Clear previous errors
+            // Clear previous errors shown via OOB swap
+             const errorTarget = document.getElementById('chat-error');
+             if(errorTarget) errorTarget.innerHTML = '';
          });
-
-        // Add placeholder div for generic HTMX errors if desired
-        // document.addEventListener('DOMContentLoaded', () => {
-        //    const toolArea = document.getElementById('tool-access-area');
-        //    if(toolArea){
-        //        const errorDiv = document.createElement('div');
-        //        errorDiv.id = 'htmx-error-target';
-        //        toolArea.appendChild(errorDiv);
-        //    }
-        // });
 
     </script>
 {% endblock %}
