@@ -1,0 +1,24 @@
+# Dockerfile.lock - TEMPORARY file to generate lock file
+
+FROM python:3.11-slim as locker
+
+# Set Environment variables individually for clarity and robustness
+ENV PIP_NO_CACHE_DIR=off
+ENV PIP_DISABLE_PIP_VERSION_CHECK=on
+ENV PIP_DEFAULT_TIMEOUT=100
+ENV POETRY_VERSION=1.8.3
+# Let Poetry manage its own venv creation within this temporary build stage
+# Ensure no prompts during poetry commands
+ENV POETRY_NO_INTERACTION=1
+
+# Install Poetry
+RUN pip install --upgrade pip && pip install "poetry==$POETRY_VERSION"
+
+WORKDIR /app
+
+# Copy only the necessary file for locking
+COPY pyproject.toml ./
+
+# Run poetry lock to generate the lock file based on pyproject.toml
+# This will create poetry.lock inside the container's /app directory
+RUN poetry lock --no-update

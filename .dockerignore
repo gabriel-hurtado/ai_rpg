@@ -1,0 +1,34 @@
+# .dockerignore
+
+# Git stuff
+.git/
+.gitignore
+.gitattributes
+
+# Poetry / Python stuff
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Environment files
+.env* # Ignore .env and potentially .env.prod etc.
+
+# IDE / Editor config
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Other
+README.md # If large or not needed in image
+tests/ # If you have tests in a separate folder
+notebooks/ # If you have jupyter notebooks
+*.tar # Don't copy the image archive if it's in the project dir

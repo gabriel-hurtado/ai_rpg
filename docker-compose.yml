@@ -1,18 +1,47 @@
-# docker-compose.yml (CORRECTED VERSION)
-
+# docker-compose.yml
 services:
   db:
-    image: postgres:15
+    image: postgres:15 # Uses the image you loaded/pulled
     container_name: ai_rpg_db
-    restart: always
+    restart: unless-stopped # More flexible restart policy
     environment:
       POSTGRES_DB: ${POSTGRES_DB}             # Read from .env
       POSTGRES_USER: ${POSTGRES_USER}           # Read from .env
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}     # Read from .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist data
+    # Ports mapping is optional if only the 'web' service needs DB access
+    # Keep it if you want to connect from your host machine (e.g., DBeaver)
     ports:
       - "5432:5432"
+
+  web:
+    container_name: ai_rpg_web
+    # Build the image using the Dockerfile in the current directory (.)
+    build: .
+    # Command to run inside the container. Overrides Dockerfile CMD if needed.
+    # We add --reload here specifically for development convenience.
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Mount your local code directory into the container's /app directory
+      # Changes you make locally will reflect inside the container (for --reload)
+      # NOTE: This is for DEVELOPMENT ONLY. Remove for production.
+      - .:/app
+    ports:
+      # Map port 8000 on your host machine to port 8000 in the container
+      - "8000:8000"
+    environment:
+      # Pass environment variables needed by the FastAPI app
+      # IMPORTANT: Use the CONTAINER_DATABASE_URL here
+      DATABASE_URL: ${CONTAINER_DATABASE_URL}
+      PROPELAUTH_URL: ${PROPELAUTH_URL}
+      PROPELAUTH_API_KEY: ${PROPELAUTH_API_KEY}
+      PROPELAUTH_VERIFIER_KEY: ${PROPELAUTH_VERIFIER_KEY}
+      # Add other variables like Stripe, Google keys when needed
+    # Ensures the 'db' service is started and healthy before 'web' starts
+    depends_on:
+      db:
+        condition: service_started # Or use service_healthy if you add healthchecks
 
 volumes:
-  postgres_data:
+  postgres_data: # Define the named volume used by the db service
