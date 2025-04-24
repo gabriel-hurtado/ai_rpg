@@ -19,6 +19,7 @@
 
     /* --- Accents (Arcane Ember) --- */
     --color-primary: #D4AF37;     /* Gold / Dark Yellow */
+    --color-primary-rgb: 212, 175, 55; /* RGB for Gold */
     --color-secondary: #F56565;   /* Deep Orange/Red */
     --color-warning: #ECC94B;     /* Slightly brighter yellow */
     --color-danger: #E53E3E;      /* Standard Red */
@@ -401,6 +402,91 @@ a:hover {
 }
 .tool-placeholder i {
     color: var(--color-primary) !important;
+}
+
+/* AI Tool Section */
+.ai-tool-form textarea {
+    background-color: var(--color-bg-light) !important; /* Match card background */
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+    min-height: 120px;
+}
+.ai-tool-form textarea:focus {
+    background-color: var(--color-bg-lighter) !important;
+    color: var(--color-text-primary);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb), 0.25); /* Adjust color if needed */
+}
+.ai-tool-form textarea::placeholder {
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+}
+
+/* static/style.css */
+
+/* Find or add this rule */
+/* 4. Buttons =========================================== */
+/* ... (keep existing .custom-btn, .custom-btn-primary, .custom-btn-warning) ... */
+
+.custom-btn-secondary {
+    background: var(--color-bg-light);
+    color: var(--color-primary); /* Gold text */
+    border: 1px solid var(--color-primary); /* Gold border */
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    font-weight: 600;
+    font-family: var(--font-primary);
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Hover state - Invert colors */
+.custom-btn-secondary:hover {
+    background: var(--color-primary); /* Gold background on hover */
+    color: var(--color-bg-dark); /* Dark text on hover for contrast */
+    border-color: var(--color-primary); /* Keep border color consistent */
+    transform: translateY(-2px); /* Subtle lift */
+    /* Optional: Add a subtle glow matching the primary color */
+    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb, 212, 175, 55), 0.25); /* Add primary color RGB */
+}
+
+/* Disabled state - Muted appearance */
+.custom-btn-secondary:disabled {
+    background-color: var(--color-bg-medium); /* Slightly darker disabled bg */
+    border-color: var(--color-border); /* Use the standard subtle border */
+    color: var(--color-text-secondary); /* Muted text color */
+    opacity: 0.5; /* Reduce opacity */
+    cursor: not-allowed;
+    transform: none; /* No hover effect */
+    box-shadow: none; /* No shadow */
+}
+
+.result-area {
+    background-color: var(--color-bg-dark); /* Darker area for results */
+    border: 1px solid var(--color-border);
+    min-height: 100px;
+}
+.result-area p { /* Style paragraphs within results */
+   max-width: none; /* Allow full width inside result area */
+   margin-bottom: 1rem;
+}
+
+/* Ensure htmx indicator (spinner) is visible */
+#ai-loading-indicator {
+    color: var(--color-primary); /* Gold spinner */
+    display: inline-block; /* Default is inline */
+    vertical-align: middle;
+}
+/* HTMX adds 'htmx-request' class during request */
+.htmx-request #ai-loading-indicator {
+    display: inline-block !important; /* Show it */
+}
+.htmx-request.htmx-indicator { /* Default opacity by HTMX */
+   opacity: 1;
 }
 
 /* 10. Footer ============================================ */

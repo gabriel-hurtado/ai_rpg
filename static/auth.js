@@ -1,4 +1,4 @@
-// static/auth.js - v9 - Removed purchase alert, Fetches Config, Uses Credit System
+// static/auth.js - v11 - Expose token globally for HTMX
 
 console.log("[Auth Start] auth.js loaded.");
 
@@ -7,9 +7,15 @@ let MAX_AI_INTERACTIONS = 100; // Default value
 let CREDIT_DURATION_DAYS = 7;  // Default value
 let configFetched = false;     // Flag to track if config loaded
 
+// --- Global Auth State ---
+let authClient = null; // Variable to hold the client instance
+window.authClient = null; // Expose globally for HTMX helper
+let currentAccessToken = null; // Store latest token
+window.currentAccessToken = null; // Expose globally for HTMX helper
+
 // Get Auth URL from data attribute on body tag
 const authUrl = document.body.dataset.authUrl;
-let authClient = null; // Variable to hold the client instance
+
 
 if (!authUrl) {
     console.error("[Auth Init Error] PropelAuth URL not found. Auth disabled.");
@@ -21,11 +27,11 @@ if (!authUrl) {
             authUrl: authUrl,
             enableBackgroundTokenRefresh: true,
         });
-        console.log("[Auth Init] PropelAuth Client Initialized:", authClient);
+        window.authClient = authClient; // Assign to global scope
+        console.log("[Auth Init] PropelAuth Client Initialized and assigned to window.authClient:", authClient);
 
         // --- DOM Elements ---
         const authNavLink = document.getElementById('auth-nav-link');
-        // const creditsDisplaySpan = document.getElementById('credits-display'); // Ensure this exists in HTML if used
 
         // --- Helper Functions ---
 
@@ -60,11 +66,17 @@ if (!authUrl) {
 
                 if (authInfo && authInfo.user) {
                      console.log("[Auth Fetch] PropelAuth user info obtained:", authInfo.user.email);
-                     const token = authInfo.accessToken;
-                     if (!token) { console.error("[Auth Fetch] No access token in authInfo."); return { isLoggedIn: true, propelUserInfo: authInfo, dbUserData: null }; }
+                     // ---> Store/Update global token <---
+                     currentAccessToken = authInfo.accessToken;
+                     window.currentAccessToken = currentAccessToken;
+
+                     if (!currentAccessToken) {
+                         console.error("[Auth Fetch] No access token in authInfo despite user object existing.");
+                         return { isLoggedIn: true, propelUserInfo: authInfo, dbUserData: null };
+                     }
 
                      console.log("[Auth Fetch] Fetching backend /api/v1/user/me...");
-                     const backendResponse = await fetch('/api/v1/user/me', { headers: { 'Authorization': `Bearer ${token}` }});
+                     const backendResponse = await fetch('/api/v1/user/me', { headers: { 'Authorization': `Bearer ${currentAccessToken}` }}); // Use stored token
                      if (!backendResponse.ok) {
                          console.error("[Auth Fetch] Failed to fetch backend user details", backendResponse.status);
                          return { isLoggedIn: true, propelUserInfo: authInfo, dbUserData: null };
@@ -74,10 +86,16 @@ if (!authUrl) {
                      return { isLoggedIn: true, propelUserInfo: authInfo, dbUserData: backendUserData };
                 } else {
                      console.log("[Auth Fetch] User not logged in.");
+                     // ---> Clear global token <---
+                     currentAccessToken = null;
+                     window.currentAccessToken = null;
                      return { isLoggedIn: false, propelUserInfo: null, dbUserData: null };
                 }
             } catch (e) {
                 console.error("[Auth Fetch] Error during fetchCombinedUserInfo:", e);
+                 // ---> Clear global token on error <---
+                 currentAccessToken = null;
+                 window.currentAccessToken = null;
                 return { isLoggedIn: false, propelUserInfo: null, dbUserData: null };
             }
         }
@@ -108,7 +126,7 @@ if (!authUrl) {
             console.log("[Auth UI] updateUI called.");
             if (!authNavLink) { console.error("[Auth UI] Error: #auth-nav-link not found!"); return; }
 
-            const combinedInfo = await fetchCombinedUserInfo();
+            const combinedInfo = await fetchCombinedUserInfo(); // This now updates window.currentAccessToken
             authNavLink.innerHTML = ''; // Clear previous
 
             const isLoggedIn = combinedInfo?.isLoggedIn ?? false;
@@ -124,7 +142,7 @@ if (!authUrl) {
                 const userName = propelUser.email || propelUser.userId;
                 const interactionsRemaining = hasValidCredit ? Math.max(0, MAX_AI_INTERACTIONS - interactionsUsed) : 0;
 
-                // Display user dropdown
+                // Display user dropdown - Ensure span#credits-display exists here
                  authNavLink.innerHTML = `
                     <li class="nav-item dropdown">
                        <a class="nav-link dropdown-toggle" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -144,7 +162,11 @@ if (!authUrl) {
                      if (logoutButton && !logoutButton.dataset.listenerAttached) {
                          logoutButton.dataset.listenerAttached = 'true';
                          logoutButton.addEventListener('click', (e) => {
-                             e.preventDefault(); console.log("[Auth Click] Logout button CLICKED!");
+                             e.preventDefault();
+                             // ---> Clear global token on logout click <---
+                             currentAccessToken = null;
+                             window.currentAccessToken = null;
+                             console.log("[Auth Click] Logout button CLICKED! Cleared token.");
                              if (authClient) authClient.logout(true);
                              else console.error("[Auth Click] authClient not ready for logout");
                          });
@@ -154,6 +176,9 @@ if (!authUrl) {
 
             } else {
                 console.log("[Auth UI] No token/user info or fetch failed. Displaying login state.");
+                 // ---> Ensure token cleared if displaying login state <---
+                 currentAccessToken = null;
+                 window.currentAccessToken = null;
                 displayLoginState();
             }
 
@@ -184,18 +209,21 @@ if (!authUrl) {
              }, 100);
         }
 
-        // --- UI Update for Payment Status (Uses pre-calculated status) ---
+        // --- UI Update for Payment Status (Controls form/button visibility/state) ---
         function updatePaymentDependentUI(isLoggedIn, hasValidCredit) {
             console.log(`[Auth UI] updatePaymentDependentUI called with IsLoggedIn: ${isLoggedIn}, HasValidCredit: ${hasValidCredit}`);
             const purchaseButton = document.getElementById('purchase-button');
             const toolAccessArea = document.getElementById('tool-access-area');
+            const aiForm = document.getElementById('ai-generation-form');
+            const promptInput = document.getElementById('ai-prompt-input');
+            const generateButton = document.getElementById('ai-generate-button');
 
             // Update Purchase Button visibility
             if (purchaseButton) {
                  purchaseButton.style.display = (isLoggedIn && !hasValidCredit) ? 'block' : 'none';
                  purchaseButton.disabled = !isLoggedIn || hasValidCredit;
                  if (!purchaseButton.disabled && purchaseButton.dataset.listenerAttached !== 'true') {
-                     setupPurchaseButtonListener(); // Ensure listener is attached if button becomes active
+                     setupPurchaseButtonListener();
                  } else if (purchaseButton.disabled) {
                       purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access';
                  }
@@ -205,10 +233,10 @@ if (!authUrl) {
             // Update Tool Access Area display
             if (toolAccessArea) {
                 const loginPrompt = toolAccessArea.querySelector('.lead');
-                const toolPlaceholder = toolAccessArea.querySelector('.tool-placeholder');
+                const showTool = isLoggedIn && hasValidCredit;
 
                 if (loginPrompt) {
-                    loginPrompt.style.display = (isLoggedIn && hasValidCredit) ? 'none' : 'block';
+                    loginPrompt.style.display = showTool ? 'none' : 'block';
                     if (!isLoggedIn) {
                         loginPrompt.innerHTML = `Please <a href="#" id="login-link-tool">log in</a> and purchase credit to unleash the AI.`;
                         const loginLinkTool = document.getElementById('login-link-tool');
@@ -218,10 +246,14 @@ if (!authUrl) {
                     }
                 } else { console.warn("[Auth UI] Tool login prompt (.lead) not found.");}
 
-                if (toolPlaceholder) {
-                    toolPlaceholder.style.opacity = (isLoggedIn && hasValidCredit) ? 1 : 0.5;
-                    // TODO: Enable/disable actual tool inputs based on hasValidCredit
-                } else { console.warn("[Auth UI] Tool placeholder (.tool-placeholder) not found.");}
+                // Control form visibility and disabled state
+                if (aiForm) {
+                     aiForm.style.display = showTool ? 'block' : 'none';
+                     if (promptInput) promptInput.disabled = !showTool;
+                     if (generateButton) generateButton.disabled = !showTool;
+                     console.log(`[Auth UI] AI Form display: ${showTool ? 'block' : 'none'}, Enabled: ${showTool}`);
+                 } else { console.warn("[Auth UI] AI Form (#ai-generation-form) not found."); }
+
                  console.log(`[Auth UI] Tool access state updated.`);
             } else { console.warn("[Auth UI] Tool access area (#tool-access-area) not found.");}
         }
@@ -233,62 +265,33 @@ if (!authUrl) {
                   purchaseButton.dataset.listenerAttached = 'true';
                   purchaseButton.addEventListener('click', async () => {
                       console.log("Purchase button clicked - initiating payment...");
-                      // REMOVED alert("Payment integration coming soon!");
-
-                      let token = null;
-                      if (authClient) {
-                          try {
-                              const authInfo = await authClient.getAuthenticationInfoOrNull(false);
-                              if (authInfo) { token = authInfo.accessToken; console.log("[Purchase Click] Got access token."); }
-                              else { console.log("[Purchase Click] No authInfo found."); }
-                          } catch (e) { console.error("[Purchase Click] Error getting authInfo:", e); }
-                      } else { console.error("[Purchase Click] authClient not initialized!"); }
+                      // Get token right before calling API using the GLOBAL variable now
+                      const token = window.currentAccessToken; // Use the globally stored token
 
                       if (!token) {
-                          console.error("Cannot purchase credit: User not logged in or token unavailable.");
-                          alert("Please log in again to purchase credit.");
-                          // No state reset here as button might be hidden immediately by UI update if logout occurred
+                          console.error("Cannot purchase credit: Token unavailable. Please log in again.");
+                          alert("Your session might have expired. Please log in again to purchase credit.");
+                          // Optionally try to refresh UI or redirect
+                          // updateUI();
                           return;
                       }
 
-                      // Show processing state
                       purchaseButton.disabled = true;
-                      purchaseButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-
+                      purchaseButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
                       try {
-                          // Call backend endpoint
-                          const response = await fetch('/api/v1/create-checkout-session', {
-                              method: 'POST',
-                              headers: { 'Authorization': `Bearer ${token}` }
-                          });
-
+                          const response = await fetch('/api/v1/create-checkout-session', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }});
                           if (!response.ok) {
-                              const errorData = await response.json();
-                              console.error("Failed to create checkout session:", response.status, errorData);
+                              const errorData = await response.json(); console.error("Checkout session error:", response.status, errorData);
                               alert(`Error initiating payment: ${errorData.detail || response.statusText}`);
-                              // Reset button state on error
-                              purchaseButton.disabled = false;
-                              purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access';
                           } else {
-                              const data = await response.json();
-                              if (data.checkout_url) {
-                                  console.log("Redirecting to Stripe:", data.checkout_url);
-                                  window.location.href = data.checkout_url;
-                                  // Don't reset button here, page is changing
-                                  return;
-                              } else {
-                                  console.error("Backend did not return checkout_url");
-                                  alert("Could not get payment URL. Please try again.");
-                                   purchaseButton.disabled = false;
-                                   purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access';
-                              }
+                              const data = await response.json(); if(data.checkout_url) { window.location.href = data.checkout_url; return; }
+                              else { console.error("Backend missing checkout_url"); alert("Could not get payment URL."); }
                           }
-                      } catch (error) {
-                          console.error("Network error creating checkout session:", error);
-                          alert("Network error initiating payment. Please check connection.");
-                          purchaseButton.disabled = false; // Reset button state
-                          purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access';
-                      }
+                      } catch (error) { console.error("Network error creating checkout session:", error); alert("Network error initiating payment."); }
+                      // Reset button only if redirect didn't happen
+                      const stillLoggedIn = !!(window.authClient && window.currentAccessToken); // Check global token
+                      if (stillLoggedIn) { updateUI(); /* Refresh UI to check credit status again */ }
+                      else { updateUI(); } // Refresh UI anyway if error occurred
                   });
                   console.log("[Auth Init] Purchase button event listener added.");
              }
@@ -297,19 +300,18 @@ if (!authUrl) {
         // --- Initialization ---
         console.log("[Auth Init] Setting up initial UI listener and fetching config.");
 
-        document.addEventListener('DOMContentLoaded', async () => { // Make async
+        document.addEventListener('DOMContentLoaded', async () => {
             console.log('[Auth Init] DOM loaded. Fetching config...');
             await fetchConfig(); // Fetch config first
             console.log('[Auth Init] Config fetch attempt complete. Running initial UI update.');
             updateUI(); // Now run UI update which fetches user state
-            setupPurchaseButtonListener(); // Setup listener after initial elements are ready
+            setupPurchaseButtonListener(); // Setup listener after initial elements might be ready
         });
 
         console.log("[Auth Init] Script finished setup.");
 
     } catch (initError) {
         console.error("[Auth Init] CRITICAL ERROR initializing PropelAuth Client:", initError);
-         // Update UI to show auth error state if needed
          document.addEventListener('DOMContentLoaded', () => {
              const authNavLink = document.getElementById('auth-nav-link');
              if (authNavLink) authNavLink.innerHTML = `<span class="nav-link text-danger">Auth Error</span>`;

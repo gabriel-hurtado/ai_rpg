@@ -5,17 +5,16 @@
 {% block content %}
 
     <!-- Hero Section -->
-    <section id="hero" class="d-flex align-items-center text-center py-5 px-3 text-white overflow-hidden"> {# Overflow hidden for effects #}
-        <div class="container position-relative" style="z-index: 2;"> {# z-index above background effects #}
+    <section id="hero" class="d-flex align-items-center text-center py-5 px-3 text-white overflow-hidden">
+        <div class="container position-relative" style="z-index: 2;">
             <div data-aos="fade-down">
                 <h1 class="display-2 fw-bold mb-3">AI-Powered <span class="highlight-gradient">Homebrew</span></h1>
                 <p class="lead mb-4 mx-auto fw-light" style="max-width: 650px;">Instantly generate limitless TTRPG content. Build unique worlds, compelling characters, and thrilling adventures with your AI co-creator.</p>
             </div>
-            <a href="#pricing" class="btn btn-lg custom-btn custom-btn-primary shadow-lg fw-bold mt-3" data-aos="fade-up" data-aos-delay="300">
-                <i class="bi bi-magic me-2"></i>Start Creating Now <i class="bi bi-chevron-right ms-1"></i>
+            <a href="#pricing" class="btn btn-lg custom-btn custom-btn-warning shadow-lg fw-bold mt-3" data-aos="fade-up" data-aos-delay="300">
+                <i class="bi bi-stars me-2"></i>Start Creating Now <i class="bi bi-chevron-right ms-1"></i>
             </a>
         </div>
-        <!-- Background Shapes/Effects (Optional) -->
         <div class="hero-shapes"></div>
     </section>
 
@@ -26,21 +25,21 @@
             <div class="row g-4 justify-content-center">
                  <div class="col-lg-4 col-md-6" data-aos="zoom-in-up" data-aos-delay="100">
                     <div class="feature-card modern-card p-4 text-center">
-                        <div class="feature-icon mb-3"><i class="bi bi-brightness-high-fill"></i></div> {# New icon #}
+                        <div class="feature-icon mb-3"><i class="bi bi-brightness-high-fill"></i></div>
                         <h4 class="fw-bold mb-2">World Genesis</h4>
                         <p class="small">Craft unique settings, cultures, histories, and maps from simple prompts.</p>
                     </div>
                  </div>
                  <div class="col-lg-4 col-md-6" data-aos="zoom-in-up" data-aos-delay="250">
                      <div class="feature-card modern-card p-4 text-center">
-                        <div class="feature-icon mb-3"><i class="bi bi-people-fill"></i></div> {# New icon #}
+                        <div class="feature-icon mb-3"><i class="bi bi-people-fill"></i></div>
                         <h4 class="fw-bold mb-2">Character Forge</h4>
                         <p class="small">Generate diverse NPCs & Monsters with deep personalities and motivations.</p>
                     </div>
                  </div>
                  <div class="col-lg-4 col-md-6" data-aos="zoom-in-up" data-aos-delay="400">
                      <div class="feature-card modern-card p-4 text-center">
-                        <div class="feature-icon mb-3"><i class="bi bi-journal-richtext"></i></div> {# New icon #}
+                        <div class="feature-icon mb-3"><i class="bi bi-journal-richtext"></i></div>
                         <h4 class="fw-bold mb-2">Adventure Crafting</h4>
                         <p class="small">Design plot hooks, balanced encounters, custom items, spells, and rules.</p>
                     </div>
@@ -53,16 +52,16 @@
      <section id="how-it-works" class="py-5">
         <div class="container">
              <h2 class="text-center mb-5 display-5" data-aos="fade-up">Launch Your Campaign Fast</h2>
-            <div class="row text-center g-5 align-items-center"> {# Larger gap, align items #}
+            <div class="row text-center g-5 align-items-center">
                 <div class="col-md-4" data-aos="fade-right" data-aos-delay="100">
                     <div class="step-icon mb-3"><i class="bi bi-person-plus-fill"></i></div>
-                    <h4 class="fw-bold fs-5">1. Sign Up Free</h4> {# Smaller heading #}
+                    <h4 class="fw-bold fs-5">1. Sign Up Free</h4>
                     <p class="text-muted small">Quick account creation.</p>
                 </div>
                  <div class="col-md-4" data-aos="fade-up" data-aos-delay="250">
                     <div class="step-icon mb-3"><i class="bi bi-credit-card-2-front-fill"></i></div>
                     <h4 class="fw-bold fs-5">2. Get Credit</h4>
-                    <p class="text-muted small">One-time $10 purchase.</p>
+                    <p class="text-muted small">One-time €10 purchase.</p>
                 </div>
                  <div class="col-md-4" data-aos="fade-left" data-aos-delay="400">
                     <div class="step-icon mb-3"><i class="bi bi-lightbulb-fill"></i></div>
@@ -78,40 +77,73 @@
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-lg-6" data-aos="flip-up">
-                    <div class="card pricing-card modern-card text-center border-0 overflow-hidden"> {# Overflow hidden for effect #}
+                    <div class="card pricing-card modern-card text-center border-0 overflow-hidden">
                          <div class="card-header pricing-header pt-4 pb-3 border-0">
                             <h4 class="my-0 fw-bold text-primary">Homebrew Build Credit</h4>
                         </div>
                         <div class="card-body p-4">
                             <div class="pricing-tag mb-4">
-                                $10 <span class="pricing-term">/ Project</span>
+                                €10 <span class="pricing-term">/ Project</span>
                             </div>
-                            <ul class="list-unstyled mt-3 mb-4 text-center small"> {# Centered list #}
+                            <ul class="list-unstyled mt-3 mb-4 text-center small">
                                 <li><i class="bi bi-check-circle text-success me-2"></i>Full AI Tool Access</li>
                                 <li><i class="bi bi-check-circle text-success me-2"></i>Extensive Generation*</li>
                                 <li><i class="bi bi-check-circle text-success me-2"></i>Build a Complete Homebrew</li>
                                 <li><i class="bi bi-check-circle text-success me-2"></i>No Subscriptions</li>
                             </ul>
-                            <button type="button" class="w-100 btn btn-lg custom-btn custom-btn-primary rounded-pill purchase-button" id="purchase-button"><i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access</button>
+                            {# Purchase button shown/hidden by auth.js #}
+                            <button type="button" class="w-100 btn btn-lg custom-btn custom-btn-primary rounded-pill purchase-button" id="purchase-button" style="display: none;"><i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access</button>
                             <small class="d-block text-muted mt-3 small">*Approx. 100 AI interactions.</small>
                         </div>
-                        <div class="pricing-glow"></div> {# For hover effect #}
+                        <div class="pricing-glow"></div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- AI Tool Placeholder Section -->
+    <!-- AI Tool Section -->
      <section id="ai-tool" class="py-5 text-center">
         <div class="container" data-aos="fade-up">
             <h2 class="mb-4 display-5">The Adventure Forge</h2>
             <div id="tool-access-area">
-                <p class="lead text-muted mb-4">Please <a href="#" class="link-primary">log in</a> and purchase credit to unleash the AI.</p>
-                <div class="tool-placeholder modern-card p-5 mt-4 mx-auto" style="max-width: 700px;">
-                    <i class="bi bi-box-fill display-1 text-primary opacity-50"></i>
-                    <p class="mt-3 text-muted">Your AI generation tools will appear here.</p>
-                </div>
+                {# This prompt is shown/hidden by auth.js #}
+                <p class="lead text-muted mb-4">Please <a href="#" class="link-primary" id="login-link-tool-placeholder">log in</a> and purchase credit to unleash the AI.</p>
+
+                {# AI Generation Form with HTMX attributes #}
+                <form id="ai-generation-form"
+                      class="ai-tool-form mx-auto"
+                      style="max-width: 700px; display: none;" {# Initially hidden #}
+                      hx-post="/api/v1/generate"
+                      hx-target="#ai-result-output"
+                      hx-swap="innerHTML" {# Main result goes here #}
+                      hx-indicator="#ai-loading-indicator"
+                      {# Dynamically add Authorization header using JS helper below #}
+                      hx-headers='js:{"Authorization": "Bearer " + getAuthTokenForHtmx()}'
+                      hx-disabled-elt="#ai-generate-button"
+                      >
+                    <div class="mb-3">
+                        <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
+                        <textarea class="form-control form-control-lg bg-light" id="ai-prompt-input" name="prompt" rows="4" placeholder="Describe the magic item, NPC, location, or encounter you want to generate..." required disabled></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-center align-items-center mb-3">
+                        <button type="submit" id="ai-generate-button" class="btn btn-lg custom-btn custom-btn-secondary" disabled>
+                            <i class="bi bi-magic me-2"></i>Generate
+                        </button>
+                        {# Loading indicator controlled by HTMX #}
+                        <div id="ai-loading-indicator" class="htmx-indicator spinner-border spinner-border-sm ms-3" role="status"> {# Default CSS will hide/show #}
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+
+                    {# Area where HTMX will place the main AI result #}
+                    {# OOB Swaps in the response will update other elements like credits display #}
+                    <div id="ai-result-output" class="mt-4 text-start result-area p-4 rounded">
+                        <p class="text-muted small">Your generated content will appear here once you submit a prompt.</p>
+                    </div>
+                </form>
+
             </div>
         </div>
     </section>
@@ -119,19 +151,56 @@
 {% endblock %}
 
 {% block scripts %}
-    {# Base scripts are included automatically #}
+    {# Base scripts are inherited via super() call implicit in block definition #}
+    {# We only add scripts SPECIFIC to this page here #}
     <script>
-        console.log("Index page v3 scripts loaded");
-        // Add any specific JS for this page here later
-        // Purchase button placeholder listener from previous example
-        const purchaseButton = document.getElementById('purchase-button');
-        if (purchaseButton) {
-            purchaseButton.addEventListener('click', () => {
-                console.log("Purchase button clicked - initiating payment...");
-                alert("Purchase button clicked - initiating payment...");
-            });
+        console.log("Index page specific scripts loaded");
+
+        // Helper function for HTMX to get the current access token
+        // Reads the global variable set by auth.js
+        function getAuthTokenForHtmx() {
+            if (window.currentAccessToken) {
+                // console.log("[HTMX Token Helper] Returning stored token.");
+                return window.currentAccessToken;
+            }
+            console.warn("[HTMX Token Helper] No currentAccessToken found in window scope.");
+            return ""; // Return empty string if token isn't available
         }
-         // Auth link update function placeholder (same as before)
-         function updateAuthLink(isLoggedIn, userName = '') { /* ... function code ... */ }
+
+        // Optional: HTMX Event Listeners for debugging/UI tweaks
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            console.log('HTMX request finished for:', evt.detail.pathInfo.path, 'Success:', evt.detail.successful);
+            if (evt.detail.failed || !evt.detail.successful) {
+                console.error('HTMX request failed:', evt.detail.xhr?.status, evt.detail.xhr?.responseText);
+                // You could display a generic error in a dedicated div if the OOB swap fails
+                 const errorTarget = document.getElementById('htmx-error-target'); // Add this div somewhere
+                 if(errorTarget && evt.detail.xhr?.status !== 403 && evt.detail.xhr?.status !== 400) { // Avoid showing for expected credit/block errors
+                      errorTarget.innerHTML = `<div class="alert alert-danger mt-3">Request failed. Please try again later.</div>`;
+                 }
+            }
+             // Re-enable button manually - hx-disabled-elt sometimes needs help
+             const generateButton = document.getElementById('ai-generate-button');
+             if (generateButton) { generateButton.disabled = false; }
+        });
+
+         document.body.addEventListener('htmx:beforeRequest', function(evt) {
+            console.log('HTMX request starting for:', evt.detail.pathInfo.path);
+            // Clear previous results or errors?
+            // const resultOutput = document.getElementById('ai-result-output');
+            // if (resultOutput) resultOutput.innerHTML = '';
+            const errorTarget = document.getElementById('htmx-error-target');
+            if(errorTarget) errorTarget.innerHTML = ''; // Clear previous errors
+         });
+
+        // Add placeholder div for generic HTMX errors if desired
+        // document.addEventListener('DOMContentLoaded', () => {
+        //    const toolArea = document.getElementById('tool-access-area');
+        //    if(toolArea){
+        //        const errorDiv = document.createElement('div');
+        //        errorDiv.id = 'htmx-error-target';
+        //        toolArea.appendChild(errorDiv);
+        //    }
+        // });
+
     </script>
 {% endblock %}

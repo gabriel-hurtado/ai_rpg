@@ -1,27 +1,20 @@
 # models.py
 from sqlmodel import SQLModel, Field
 from typing import Optional
-from datetime import datetime, timedelta # Import datetime stuff
+from datetime import datetime, timezone # Import datetime, timezone
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     propelauth_user_id: str = Field(index=True, unique=True)
     email: str = Field(index=True, unique=True)
 
-    # Number of active credits the user has
+    # --- Credit System Fields ---
     credits: int = Field(default=0)
-
-    # Timestamp when the current credit batch was activated (e.g., after payment)
-    # Optional because a user might have 0 credits.
+    # Store timezone-aware datetime (e.g., UTC)
     credit_activation_time: Optional[datetime] = Field(default=None)
-
-    # Counter for AI interactions within the current credit period
     ai_interactions_used: int = Field(default=0)
 
-    # --- Optional: Timestamps for user record ---
-    # created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    # updated_at: Optional[datetime] = Field(default=None, sa_column_kwargs={"onupdate": datetime.utcnow})
-
     class Config:
+        # May be needed if using timezone-aware datetimes directly
+        # arbitrary_types_allowed = True
         pass
-        # potentially add arbitrary_types_allowed = True if needed for datetime with older Pydantic/SQLModel
