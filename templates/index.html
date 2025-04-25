@@ -111,18 +111,23 @@
                 <p class="lead text-muted mb-4">Please <a href="#" class="link-primary" id="login-link-tool-placeholder">log in</a> and purchase credit to unleash the AI.</p>
 
                  {# --- CHAT HISTORY AREA --- #}
-                 <div id="ai-result-output" class="mb-3 text-start result-area p-3 rounded chat-container"> {# Added mb-3 for spacing #}
-                      <div id="chat-message-list"> {# Inner div for messages #}
+                 <div id="ai-result-output" class="mb-3 text-start result-area p-3 rounded chat-container">
+                      <div id="chat-message-list">
                           <p class="text-muted small text-center initial-chat-prompt">Chat history will appear here.</p>
                       </div>
-                      <div id="chat-error"></div> {# For OOB error swaps #}
+                      <div id="chat-error"></div>
                  </div>
+
+                 <!-- Single zoom button -->
+                 <button id="chat-zoom-toggle" class="chat-zoom-btn" title="Toggle fullscreen mode">
+                     <i class="bi bi-arrows-fullscreen"></i>
+                 </button>
 
                  {# --- INPUT FORM AREA (Streaming, JS-based, not HTMX) --- #}
                  <form id="ai-generation-form"
                        class="ai-tool-form mx-auto"
                        action="/api/v1/chat/message" method="post"
-                       style="max-width: 700px; display: block;"> 
+                       style="max-width: 700px; display: block;">
                       <div class="d-flex align-items-center">
                           <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
                           <textarea class="form-control form-control-lg bg-light me-2" id="ai-prompt-input" name="prompt" rows="1" style="resize: none; height: auto;" placeholder="Enter your prompt here..." required></textarea>

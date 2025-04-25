@@ -1,217 +1,293 @@
 /* static/chat.css */
 
+/* Reset problematic styles completely */
+body {
+    padding-top: 64px; /* Match navbar height */
+}
+
+/* SUPER HIGH Z-INDEX VALUES FOR PROPER STACKING */
+:root {
+  --z-navbar: 9000;
+  --z-chat-fullscreen: 8000;
+  --z-chat-form: 8500;
+  --z-zoom-button: 9500;
+}
+
+/* Fix navbar styling */
+.navbar.site-header {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: var(--z-navbar) !important;
+    background-color: #171721 !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    transition: none;
+}
+
+/* Base chat container */
 .chat-container {
-    height: 65vh; /* Or max-height */
-    overflow-y: auto;  /* Enable vertical scrolling */
-    background-color: var(--color-bg-dark);
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    display: flex;
-    flex-direction: column; /* Standard top-to-bottom */
+  position: relative;
+  height: 400px;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: #1e1e24;
+  padding: 15px;
+  margin-bottom: 20px;
+  z-index: 1;
 }
 
+/* Basic message container */
 #chat-message-list {
-    display: flex;
-    flex-direction: column; /* Standard top-to-bottom block flow */
-    gap: 0.75rem;
-    padding: 1rem;
-    /* Let content grow naturally */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 200px;
+  padding-bottom: 40px;
 }
 
-/* Base message bubble style */
+/* HIDE ALL OTHER PAGE CONTENT IN FULLSCREEN MODE */
+body.chat-fullscreen-active .page-wrapper > *:not(header):not(main),
+body.chat-fullscreen-active main > *:not(#ai-tool) {
+  display: none !important;
+}
+
+/* Make AI tool section take full height in fullscreen */
+body.chat-fullscreen-active #ai-tool {
+  height: calc(100vh - 64px);
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove any margin/padding from container in fullscreen */
+body.chat-fullscreen-active #ai-tool .container {
+  max-width: 100%;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  height: 100%;
+}
+
+/* Hide other elements within the AI tool section when in fullscreen */
+body.chat-fullscreen-active #ai-tool h2,
+body.chat-fullscreen-active #ai-tool > .container > p,
+body.chat-fullscreen-active #login-link-tool-placeholder {
+  display: none !important;
+}
+
+/* Make tool access area take full height */
+body.chat-fullscreen-active #tool-access-area {
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/* ULTIMATE Z-INDEX FIXES - RESTORED PROPER POSITIONING */
+body.chat-fullscreen-active .chat-container {
+  position: fixed;
+  top: 0; /* Don't double-count navbar height */
+  left: 0;
+  right: 0;
+  bottom: 0; /* Space for form */
+  width: 100vw; /* Force full viewport width */
+  height: auto; /* Auto height between top and bottom constraints */
+  max-height: none;
+  max-width: none;
+  margin: 0;
+  border-radius: 0;
+  background: #1e1e24;
+  z-index: 8000;
+  padding: 0;
+  overflow-y: auto !important; /* Force scrolling */
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* OVERRIDE BOOTSTRAP PADDING FOR AI TOOL SECTION */
+body.chat-fullscreen-active #ai-tool {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* OVERRIDE BOOTSTRAP PADDING FOR CONTAINER */
+body.chat-fullscreen-active #ai-tool .container {
+  padding: 0 !important;
+}
+
+/* CHAT MESSAGES CONTAINER FIXES */
+body.chat-fullscreen-active #chat-message-list {
+  padding: 20px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: calc(100vh - 64px);
+}
+
+/* ALWAYS VISIBLE ZOOM BUTTON */
+.chat-zoom-btn {
+  position: fixed;
+  bottom: 15px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #2a2a30;
+  color: #ffd580;
+  border: 2px solid #ffd580;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9500; /* Above everything */
+  box-shadow: 0 3px 15px rgba(0,0,0,0.3);
+}
+
+/* ENHANCED MESSAGE STYLING */
 .chat-message {
-    padding: 0.75rem 1.25rem;
-    border-radius: 1.25rem;
-    max-width: 75%;
-    word-wrap: break-word;
-    line-height: 1.6;
-    margin-bottom: 0.75rem;
-    box-shadow: var(--shadow-sm);
-    position: relative;
-    opacity: 0;
-    animation: fadeUp 0.4s ease-out forwards;
-}
-.chat-message p:last-child,
-.chat-message div.markdown-content > *:last-child {
-    margin-bottom: 0;
-}
-.chat-message strong { /* Role Label (You: / AI:) */
-     display: block;
-     font-size: 0.75rem;
-     margin-bottom: 0.25rem;
-     opacity: 0.8;
-     font-weight: var(--font-weight-medium);
+  margin-bottom: 15px;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: relative;
+  z-index: 8200; /* Above container and list */
 }
 
+/* LAST MESSAGE EXTRA SPACE */
+.chat-message:last-child {
+  margin-bottom: 60px;
+}
+
+/* FORM STYLING IN FULLSCREEN */
+body.chat-fullscreen-active #ai-generation-form .form-control {
+  background: #222;
+  color: white;
+  border: 1px solid #333;
+}
+
+/* FIXED POSITION FOR FORM CONTENTS */
+body.chat-fullscreen-active #ai-generation-form > div {
+  width: 80%;
+  max-width: 900px;
+  display: flex;
+  align-items: center;
+  gap: 15px; /* Add gap for better spacing */
+}
+
+/* PREVENT BODY SCROLL IN FULLSCREEN */
+body.chat-fullscreen-active {
+  overflow: hidden;
+}
+
+/* Fix the message bubbles to ensure they're always visible */
+.chat-message {
+  margin-bottom: 15px;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Fix for the last message getting cut off */
+.chat-message:last-child {
+  margin-bottom: 40px; /* Extra space for the last message */
+}
+
+/* IMPROVED FORM AT BOTTOM */
+body.chat-fullscreen-active #ai-generation-form {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9000; /* Above container */
+  background: #111114; /* Darker, more elegant background */
+  border-top: 1px solid #333;
+  padding: 0;
+  margin: 0;
+  max-width: 100%;
+  height: 0px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  visibility: visible !important;
+}
+
+/* CLEAN TEXTAREA STYLING */
+body.chat-fullscreen-active textarea {
+  background: rgba(30, 30, 45, 0.7);
+  color: white;
+  border: 1px solid rgba(80, 80, 100, 0.5);
+  border-radius: 24px;
+  padding: 12px 20px;
+  height: auto !important;
+  min-height: 46px;
+  line-height: 1.5;
+  flex-grow: 1;
+  resize: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) inset;
+}
+
+/* CLEAN GENERATE BUTTON STYLING - FIXED */
+body.chat-fullscreen-active #ai-generate-button {
+  background: #ffd580;
+  color: #222;
+  border: none;
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  padding: 0;
+  margin-left: 0; /* Already have gap from container */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.chat-fullscreen-active #ai-generate-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+}
+
+body.chat-fullscreen-active #ai-generate-button i {
+  font-size: 18px;
+}
+
+/* ZOOM BUTTON POSITIONING IN FULLSCREEN */
+body.chat-fullscreen-active .chat-zoom-btn {
+  bottom: 95px; /* Position above form */
+  right: 15px;
+}
+
+/* BASIC MESSAGE STYLING */
+.chat-message {
+  border-radius: 16px;
+  padding: 12px 16px;
+  max-width: 80%;
+  word-wrap: break-word;
+  margin-bottom: 12px;
+}
 
 .user-message {
-    background: linear-gradient(135deg, var(--color-primary), var(--color-warning));
-    color: var(--color-bg-dark);
-    margin-left: auto;
-    border-bottom-right-radius: 0.4rem;
-    align-self: flex-end; /* Stick to the right */
+  background: linear-gradient(135deg, #ffd580, #ffb347);
+  color: #222;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
 }
-.user-message p, .user-message strong { color: inherit !important; }
-.user-message strong { color: rgba(0,0,0,0.7) !important; }
-
 
 .ai-message {
-    background-color: var(--color-bg-light);
-    color: var(--color-text-primary);
-    margin-right: auto;
-    border-bottom-left-radius: 0.4rem;
-    align-self: flex-start; /* Stick to the left */
-}
-.ai-message strong { color: var(--color-secondary) !important; } /* AI label color */
-
- /* Styles for content rendered from markdown */
- .ai-message .markdown-content p { color: var(--color-text-primary) !important; margin-bottom: 0.75rem; }
- .ai-message .markdown-content strong { font-weight: var(--font-weight-semibold); color: inherit !important; display: inline; margin-bottom: 0; opacity: 1;}
- .ai-message .markdown-content em { font-style: italic; }
- .ai-message .markdown-content code {
-     background-color: var(--color-bg-medium);
-     padding: 0.2em 0.4em;
-     border-radius: var(--border-radius-sm);
-     font-size: 0.85em;
-     border: 1px solid var(--color-border);
-     color: var(--color-text-primary);
-     word-wrap: break-word;
- }
-  .ai-message .markdown-content pre {
-     background-color: var(--color-bg-medium);
-     padding: 0.8rem;
-     border-radius: var(--border-radius-sm);
-     overflow-x: auto;
-     font-size: 0.85rem;
-     border: 1px solid var(--color-border);
-     margin: 0.5rem 0;
-     color: var(--color-text-secondary);
- }
-  .ai-message .markdown-content pre code {
-    background-color: transparent;
-    padding: 0;
-    border: none;
-    font-size: inherit;
-    color: inherit; /* Inherit color from pre */
- }
- .ai-message .markdown-content ul, .ai-message .markdown-content ol {
-     padding-left: 1.75rem;
-     margin-bottom: 0.75rem;
-     color: var(--color-text-primary);
- }
- .ai-message .markdown-content li {
-    margin-bottom: 0.3rem;
- }
- .ai-message .markdown-content h1,
- .ai-message .markdown-content h2,
- .ai-message .markdown-content h3,
- .ai-message .markdown-content h4,
- .ai-message .markdown-content h5,
- .ai-message .markdown-content h6 {
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
-    line-height: 1.3;
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-headings);
- }
- .ai-message .markdown-content h1 { font-size: 1.6rem; }
- .ai-message .markdown-content h2 { font-size: 1.4rem; }
- .ai-message .markdown-content h3 { font-size: 1.25rem; }
- .ai-message .markdown-content h4 { font-size: 1.1rem; }
- .ai-message .markdown-content hr {
-    border-top: 1px solid var(--color-border);
-    margin: 1rem 0;
- }
- .ai-message .markdown-content table {
-    width: 100%;
-    margin-bottom: 1rem;
-    color: var(--color-text-secondary);
-    border-collapse: collapse;
- }
- .ai-message .markdown-content th,
- .ai-message .markdown-content td {
-    border: 1px solid var(--color-border);
-    padding: 0.5rem 0.75rem;
-    text-align: left;
- }
- .ai-message .markdown-content th {
-    font-weight: var(--font-weight-semibold);
-    background-color: var(--color-bg-light);
-    color: var(--color-text-primary);
- }
-
- /* Improved markdown content styling for chat */
-.markdown-content {
-    font-size: 1rem;
-    line-height: 1.6;
-    color: #e0e0e0;
-    background: none;
-    padding: 0;
-}
-.markdown-content h1, .markdown-content h2, .markdown-content h3 {
-    margin: 1em 0 0.5em 0;
-    font-weight: 600;
-    color: #ffdf7e;
-}
-.markdown-content ul, .markdown-content ol {
-    margin-left: 1.5em;
-    margin-bottom: 1em;
-}
-.markdown-content li {
-    margin-bottom: 0.4em;
-}
-.markdown-content strong {
-    color: #fff;
-    font-weight: 600;
-    font-size: 1em; /* Ensure bold text is not smaller */
-}
-.markdown-content em {
-    color: #ffd580;
-}
-.markdown-content code {
-    background: #222;
-    color: #ffb86c;
-    padding: 2px 4px;
-    border-radius: 4px;
-    font-size: 0.95em;
-}
-.markdown-content pre {
-    background: #222;
-    color: #ffb86c;
-    padding: 0.75em;
-    border-radius: 6px;
-    font-size: 0.95em;
-    overflow-x: auto;
-}
-.markdown-content blockquote {
-    border-left: 4px solid #ffd580;
-    margin: 1em 0;
-    padding-left: 1em;
-    color: #bfbfbf;
-    font-style: italic;
+  background: #282836;
+  color: #f0f0f0;
+  margin-right: auto;
+  border-bottom-left-radius: 4px;
 }
 
-.ai-loading-spinner.spinner-border {
-    color: #ffd580;
-    vertical-align: middle;
+/* RESPONSIVE ADJUSTMENTS */
+@media (max-width: 768px) {
+  body.chat-fullscreen-active .chat-container {
+    padding: 15px 10px;
+  }
+  
+  body.chat-fullscreen-active #ai-generation-form {
+    padding: 0 5%;
+  }
 }
-
-/* Fade-in animation */
-@keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Input area adjustments */
-.ai-tool-form textarea { transition: height 0.2s ease; }
-.ai-tool-form button i { vertical-align: -1px; } /* Align icon better */
-
-/* Initial prompt styling */
-.initial-chat-prompt { margin: auto; padding: 2rem; color: var(--color-text-secondary); opacity: 0.7; }
-
-/* Styling for error messages */
-#chat-error .alert { margin: 0.5rem 0; font-size: 0.9rem; }
-
-/* HTMX Loading Indicator */
-#ai-loading-indicator { display: none; color: var(--color-primary); vertical-align: middle; }
-#ai-generation-form.htmx-request #ai-loading-indicator { display: inline-block !important; }
