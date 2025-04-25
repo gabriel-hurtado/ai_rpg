@@ -88,6 +88,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (form) {
                         form.style.visibility = 'visible';
                         form.style.display = 'flex';
+                        form.style.maxWidth = '95%'; // Ensure wide form in fullscreen
+                        
+                        // Make textarea wider in fullscreen
+                        const textarea = form.querySelector('#ai-prompt-input');
+                        if (textarea) {
+                            textarea.style.flex = '1 1 auto';
+                            textarea.style.width = '100%';
+                            textarea.style.maxWidth = 'none';
+                        }
+                        
+                        // Make form div wider
+                        const formDiv = form.querySelector('div');
+                        if (formDiv) {
+                            formDiv.style.width = '100%';
+                        }
                     }
                     
                     // Force scroll to bottom after transition
@@ -102,6 +117,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Restore heading elements
                     const headings = document.querySelectorAll('#ai-tool h2, #ai-tool > .container > p');
                     headings.forEach(el => el.style.display = '');
+                    
+                    // Keep form width consistent
+                    if (form) {
+                        form.style.maxWidth = '90%';
+                    }
                     
                     // Force scroll to bottom after transition
                     setTimeout(() => {

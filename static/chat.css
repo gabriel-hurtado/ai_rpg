@@ -157,72 +157,57 @@ body.chat-fullscreen-active #chat-message-list {
   margin-bottom: 60px;
 }
 
-/* FORM STYLING IN FULLSCREEN */
-body.chat-fullscreen-active #ai-generation-form .form-control {
-  background: #222;
-  color: white;
-  border: 1px solid #333;
-}
-
-/* FIXED POSITION FOR FORM CONTENTS */
-body.chat-fullscreen-active #ai-generation-form > div {
-  width: 80%;
-  max-width: 900px;
-  display: flex;
-  align-items: center;
-  gap: 15px; /* Add gap for better spacing */
-}
-
-/* PREVENT BODY SCROLL IN FULLSCREEN */
-body.chat-fullscreen-active {
-  overflow: hidden;
-}
-
-/* Fix the message bubbles to ensure they're always visible */
-.chat-message {
-  margin-bottom: 15px;
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* Fix for the last message getting cut off */
-.chat-message:last-child {
-  margin-bottom: 40px; /* Extra space for the last message */
-}
-
 /* IMPROVED FORM AT BOTTOM */
 body.chat-fullscreen-active #ai-generation-form {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 9000; /* Above container */
-  background: #111114; /* Darker, more elegant background */
-  border-top: 1px solid #333;
-  padding: 0;
-  margin: 0;
-  max-width: 100%;
-  height: 0px;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 9000 !important; /* Above container */
+  background: #111114 !important; /* Darker, more elegant background */
+  border-top: 1px solid #333 !important;
+  padding: 15px 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important; /* Override the inline style max-width: 700px */
+  width: 100% !important;
+  height: 80px !important;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.3) !important;
   display: flex !important;
-  justify-content: center;
-  align-items: center;
+  justify-content: center !important;
+  align-items: center !important;
   visibility: visible !important;
 }
 
-/* CLEAN TEXTAREA STYLING */
-body.chat-fullscreen-active textarea {
-  background: rgba(30, 30, 45, 0.7);
-  color: white;
-  border: 1px solid rgba(80, 80, 100, 0.5);
-  border-radius: 24px;
-  padding: 12px 20px;
+/* FIXED POSITION FOR FORM CONTENTS - FULLSCREEN SPECIFIC */
+body.chat-fullscreen-active #ai-generation-form > div {
+  width: 95% !important; /* Slightly reduced from 98% for better appearance */
+  max-width: 1800px !important; /* Force max-width with !important */
+  display: flex !important;
+  align-items: center !important;
+  gap: 15px !important;
+}
+
+/* CLEAN TEXTAREA STYLING - WITH MAX SPECIFICITY */
+body.chat-fullscreen-active textarea#ai-prompt-input,
+body.chat-fullscreen-active #ai-prompt-input.form-control,
+body.chat-fullscreen-active #ai-prompt-input.form-control-lg {
+  background: rgba(30, 30, 45, 0.7) !important;
+  color: white !important;
+  border: 1px solid rgba(80, 80, 100, 0.5) !important;
+  border-radius: 24px !important;
+  padding: 12px 20px !important;
   height: auto !important;
-  min-height: 46px;
-  line-height: 1.5;
-  flex-grow: 1;
-  resize: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) inset;
+  min-height: 46px !important;
+  line-height: 1.5 !important;
+  flex-grow: 1 !important;
+  flex: 1 1 auto !important;
+  resize: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) inset !important;
+  font-family: var(--font-primary, 'Poppins', sans-serif) !important;
+  font-size: 16px !important;
+  width: 100% !important;
+  max-width: none !important; /* Ensure no max-width constraint */
+  min-width: 0 !important;
 }
 
 /* CLEAN GENERATE BUTTON STYLING - FIXED */
@@ -267,11 +252,27 @@ body.chat-fullscreen-active .chat-zoom-btn {
   margin-bottom: 12px;
 }
 
+/* USER MESSAGE STYLING WITH BETTER FONT COLOR */
 .user-message {
-  background: linear-gradient(135deg, #ffd580, #ffb347);
-  color: #222;
+  background: linear-gradient(135deg, #ffda95, #ffb860);
+  color: #000000 !important; /* Force black text */
   margin-left: auto;
   border-bottom-right-radius: 4px;
+  font-family: var(--font-primary, 'Poppins', sans-serif);
+  font-weight: 500 !important; /* Make slightly bolder */
+  font-size: 16px;
+  letter-spacing: 0.015em;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  text-shadow: 0 1px 1px rgba(255,255,255,0.2); /* Subtle text shadow for better readability */
+}
+
+/* FORCE COLOR ON ALL USER MESSAGE ELEMENTS */
+.user-message *,
+.user-message p,
+.user-message span,
+.user-message div {
+  color: #000000 !important;
 }
 
 .ai-message {
@@ -279,6 +280,11 @@ body.chat-fullscreen-active .chat-zoom-btn {
   color: #f0f0f0;
   margin-right: auto;
   border-bottom-left-radius: 4px;
+  font-family: var(--font-primary, 'Poppins', sans-serif);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 /* RESPONSIVE ADJUSTMENTS */
@@ -290,4 +296,58 @@ body.chat-fullscreen-active .chat-zoom-btn {
   body.chat-fullscreen-active #ai-generation-form {
     padding: 0 5%;
   }
+}
+
+/* OVERRIDE ANY BOOTSTRAP CONSTRAINTS */
+body.chat-fullscreen-active .form-control,
+body.chat-fullscreen-active .form-control-lg {
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Make the text input wider in normal (non-fullscreen) view */
+#ai-generation-form {
+  max-width: 90% !important; /* Override the inline style max-width: 700px */
+  width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#ai-generation-form > div {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+#ai-prompt-input {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0;
+  max-width: none !important;
+}
+
+/* Responsive adjustments for even smaller screens */
+@media (max-width: 576px) {
+  #ai-generation-form {
+    max-width: 95% !important;
+    width: 95%;
+  }
+}
+
+/* PREVENT BODY SCROLL IN FULLSCREEN */
+body.chat-fullscreen-active {
+  overflow: hidden;
+}
+
+/* Fix the message bubbles to ensure they're always visible */
+.chat-message {
+  margin-bottom: 15px;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Fix for the last message getting cut off */
+.chat-message:last-child {
+  margin-bottom: 40px; /* Extra space for the last message */
 }
