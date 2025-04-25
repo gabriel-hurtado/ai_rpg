@@ -210,6 +210,50 @@ a:hover {
     box-shadow: var(--shadow-md);
 }
 
+/* Custom Scrollbars ================================== */
+/* For Webkit browsers (Chrome, Safari, Edge, Opera) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: var(--border-radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+/* Textarea specific scrollbars */
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: var(--border-radius-sm);
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
+}
+
 /* 5. Hero Section ====================================== */
 #hero {
     background: linear-gradient(180deg, rgba(16, 16, 20, 0.70) 0%, rgba(31, 31, 40, 0.95) 100%), /* Adjusted overlay opacity */
@@ -422,12 +466,44 @@ a:hover {
     opacity: 0.7;
 }
 
-/* static/style.css */
+/* 10. Footer ============================================ */
+footer {
+    padding-top: 3rem; /* More space above footer */
+    padding-bottom: 3rem;
+    border-top: 1px solid var(--color-border);
+    background-color: var(--color-bg-dark); /* Dark footer */
+}
+footer p {
+    max-width: none; /* Allow footer text full width */
+    margin-bottom: 0; /* Remove extra space */
+}
 
-/* Find or add this rule */
-/* 4. Buttons =========================================== */
-/* ... (keep existing .custom-btn, .custom-btn-primary, .custom-btn-warning) ... */
+/* 11. Responsive Adjustments =========================== */
+@media (max-width: 991.98px) {
+    .navbar-nav {
+        background-color: var(--color-bg-light); /* Match card background */
+        padding: 1rem;
+        margin-top: 0.5rem;
+        border-radius: var(--border-radius-md);
+        border: 1px solid var(--color-border);
+    }
+    .nav-item { margin-bottom: 0.5rem; }
+    .nav-item:last-child { margin-bottom: 0; }
+    /* Make navbar login button full width in collapsed menu */
+    .navbar .custom-btn { width: 100%; }
+}
 
+@media (max-width: 768px) {
+    body { padding-top: 68px; } /* Adjust if navbar height changes */
+    .display-2 { font-size: 2.5rem; }
+    .display-5 { font-size: 1.8rem; }
+    #hero { min-height: calc(75vh - 68px); } /* Slightly shorter hero on mobile */
+    p { max-width: 95%; margin-left: auto; margin-right: auto;} /* Adjust text width */
+    .container .row p { max-width: none; } /* Reset for columns */
+
+}
+
+/* 12. Custom Button Secondary Style */
 .custom-btn-secondary {
     background: var(--color-bg-light);
     color: var(--color-primary); /* Gold text */
@@ -487,41 +563,4 @@ a:hover {
 }
 .htmx-request.htmx-indicator { /* Default opacity by HTMX */
    opacity: 1;
-}
-
-/* 10. Footer ============================================ */
-footer {
-    padding-top: 3rem; /* More space above footer */
-    padding-bottom: 3rem;
-    border-top: 1px solid var(--color-border);
-    background-color: var(--color-bg-dark); /* Dark footer */
-}
-footer p {
-    max-width: none; /* Allow footer text full width */
-    margin-bottom: 0; /* Remove extra space */
-}
-
-/* 11. Responsive Adjustments =========================== */
-@media (max-width: 991.98px) {
-    .navbar-nav {
-        background-color: var(--color-bg-light); /* Match card background */
-        padding: 1rem;
-        margin-top: 0.5rem;
-        border-radius: var(--border-radius-md);
-        border: 1px solid var(--color-border);
-    }
-    .nav-item { margin-bottom: 0.5rem; }
-    .nav-item:last-child { margin-bottom: 0; }
-    /* Make navbar login button full width in collapsed menu */
-    .navbar .custom-btn { width: 100%; }
-}
-
-@media (max-width: 768px) {
-    body { padding-top: 68px; } /* Adjust if navbar height changes */
-    .display-2 { font-size: 2.5rem; }
-    .display-5 { font-size: 1.8rem; }
-    #hero { min-height: calc(75vh - 68px); } /* Slightly shorter hero on mobile */
-    p { max-width: 95%; margin-left: auto; margin-right: auto;} /* Adjust text width */
-    .container .row p { max-width: none; } /* Reset for columns */
-
 }

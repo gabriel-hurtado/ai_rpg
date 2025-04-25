@@ -99,7 +99,7 @@ if GOOGLE_API_KEY:
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
         ai_model = genai.GenerativeModel(
-            'gemini-2.5-pro-exp-03-25', # Use requested Pro model
+            'gemini-2.5-flash-preview-04-17', #'gemini-2.5-pro-exp-03-25', # Use requested Pro model
             system_instruction=SYSTEM_PROMPT
             )
         google_ai_configured = True

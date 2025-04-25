@@ -357,3 +357,63 @@ body.chat-fullscreen-active .chat-message:last-child {
   z-index: 9500; /* Above everything */
   box-shadow: 0 3px 15px rgba(0,0,0,0.3);
 }
+
+/* CUSTOM SCROLLBAR STYLING - REFINED FOR MINIMAL UI */
+/* For Webkit browsers (Chrome, Safari, Edge, Opera) */
+body.chat-fullscreen-active .chat-container::-webkit-scrollbar,
+body.chat-fullscreen-active textarea::-webkit-scrollbar {
+  width: 6px; /* Thinner for more minimal look */
+  height: 6px;
+}
+
+body.chat-fullscreen-active .chat-container::-webkit-scrollbar-track,
+body.chat-fullscreen-active textarea::-webkit-scrollbar-track {
+  background: transparent; /* Completely transparent track */
+}
+
+body.chat-fullscreen-active .chat-container::-webkit-scrollbar-thumb,
+body.chat-fullscreen-active textarea::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3); /* Using color palette variable */
+  border-radius: var(--border-radius-sm);
+}
+
+body.chat-fullscreen-active .chat-container::-webkit-scrollbar-thumb:hover,
+body.chat-fullscreen-active textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5); /* Using color palette variable */
+}
+
+/* For Firefox */
+body.chat-fullscreen-active .chat-container,
+body.chat-fullscreen-active textarea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
+
+/* Also style normal view scrollbars for consistency */
+.chat-container::-webkit-scrollbar,
+textarea::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.chat-container::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-container::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(var(--color-primary-rgb), 0.3);
+  border-radius: var(--border-radius-sm);
+}
+
+.chat-container::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--color-primary-rgb), 0.5);
+}
+
+.chat-container,
+textarea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+}
