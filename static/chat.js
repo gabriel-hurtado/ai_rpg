@@ -13,6 +13,53 @@ function escapeHtml(unsafe) {
          .replace(/'/g, "&#039;");
 }
 
+// Auto-resize textarea to fit content
+function autoResizeTextarea(textarea) {
+    if (!textarea) return;
+    
+    // Reset height to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set to scrollHeight but respect min/max heights from CSS (46px min, 300px max)
+    const newHeight = Math.min(Math.max(textarea.scrollHeight, 46), 300);
+    textarea.style.height = newHeight + 'px';
+    
+    // Get form element
+    const form = document.getElementById('ai-generation-form');
+    // Get chat container
+    const chatContainer = document.getElementById('ai-result-output');
+    
+    // Check if we're in fullscreen mode
+    const isFullscreen = document.body.classList.contains('chat-fullscreen-active');
+    
+    if (isFullscreen) {
+        // Calculate form height (textarea height + padding)
+        const formHeight = newHeight + 35; // 15px padding top + 20px padding bottom
+        
+        // Adjust form height dynamically
+        if (form) {
+            form.style.height = formHeight + 'px';
+        }
+        
+        // Adjust chat container's bottom position to match form height
+        if (chatContainer) {
+            chatContainer.style.bottom = formHeight + 'px';
+        }
+        
+        // Adjust bottom padding of chat message list based on textarea height
+        const chatList = document.getElementById('chat-message-list');
+        if (chatList) {
+            const basePadding = 80; // Base padding
+            const extraPadding = Math.max(0, newHeight - 46); // Add extra for height beyond minimum
+            const totalPadding = basePadding + extraPadding;
+            chatList.style.paddingBottom = totalPadding + 'px';
+            console.log(`[Chat] Adjusted message list padding to ${totalPadding}px`);
+        }
+    }
+    
+    console.log(`[Chat] Resized textarea to ${newHeight}px`);
+}
+
 // Wait for document to be ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('[Chat] Initializing chat components');
@@ -21,6 +68,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatForm = document.getElementById('ai-generation-form');
     const zoomButton = document.getElementById('chat-zoom-toggle');
     const chatDisplay = document.getElementById('chat-message-list');
+    const promptInput = document.getElementById('ai-prompt-input');
+    
+    // Setup auto-resize for textarea
+    if (promptInput) {
+        // Initial resize
+        autoResizeTextarea(promptInput);
+        
+        // On input event (when user types)
+        promptInput.addEventListener('input', function() {
+            autoResizeTextarea(this);
+        });
+        
+        // Also resize on focus, in case content was changed programmatically
+        promptInput.addEventListener('focus', function() {
+            autoResizeTextarea(this);
+        });
+    }
     
     // Improve scrolling in fullscreen mode
     function scrollToBottom() {
@@ -59,6 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const otherSections = document.querySelectorAll('section:not(#ai-tool)');
             const container = document.getElementById('ai-result-output');
             const form = document.getElementById('ai-generation-form');
+            const textarea = document.getElementById('ai-prompt-input');
             
             // Get fullscreen state
             const isFullscreen = document.body.classList.contains('chat-fullscreen-active');
@@ -91,17 +156,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         form.style.maxWidth = '95%'; // Ensure wide form in fullscreen
                         
                         // Make textarea wider in fullscreen
-                        const textarea = form.querySelector('#ai-prompt-input');
                         if (textarea) {
                             textarea.style.flex = '1 1 auto';
                             textarea.style.width = '100%';
                             textarea.style.maxWidth = 'none';
+                            // Re-apply auto-resize to make sure textarea is correct size
+                            autoResizeTextarea(textarea);
                         }
                         
                         // Make form div wider
                         const formDiv = form.querySelector('div');
                         if (formDiv) {
                             formDiv.style.width = '100%';
+                            formDiv.style.alignItems = 'flex-start'; // Allow textarea to expand vertically
                         }
                     }
                     
@@ -121,6 +188,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Keep form width consistent
                     if (form) {
                         form.style.maxWidth = '90%';
+                    }
+                    
+                    // Re-apply auto-resize to the textarea
+                    if (textarea) {
+                        autoResizeTextarea(textarea);
                     }
                     
                     // Force scroll to bottom after transition
