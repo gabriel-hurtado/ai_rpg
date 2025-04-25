@@ -193,6 +193,7 @@ async function streamAIResponse(formElement, chatDisplay) {
     // Get user input before sending
     const promptInput = formElement.querySelector('textarea[name="prompt"]');
     const userMessage = promptInput ? promptInput.value : '';
+
     if (userMessage.trim()) {
         // Format and append user message to chat
         const userDiv = document.createElement('div');
@@ -209,11 +210,6 @@ async function streamAIResponse(formElement, chatDisplay) {
     let markdownContentDiv = aiMessageDiv.querySelector('.markdown-content');
     chatDisplay.appendChild(aiMessageDiv);
     scrollToBottom();
-
-    if (promptInput) {
-        promptInput.value = '';
-        promptInput.blur(); // Optionally remove focus for better UX
-    }
 
     const formData = new FormData(formElement);
     // Get the current access token from auth.js utility
@@ -254,6 +250,12 @@ async function streamAIResponse(formElement, chatDisplay) {
     }
     // Remove spinner if still present
     if (firstChunk) markdownContentDiv.innerHTML = '<span class="text-danger">No AI response received.</span>';
+
+    // Clear and blur the input after the fetch completes
+    if (promptInput) {
+        promptInput.value = '';
+        promptInput.blur(); // Optionally remove focus for better UX
+    }
 }
 
 // --- Patch form submit to use streaming ---
