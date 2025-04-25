@@ -1476,6 +1476,25 @@ pydantic = ">=1.10.13,<3.0.0"
 SQLAlchemy = ">=2.0.14,<2.1.0"
 
 [[package]]
+name = "sse-starlette"
+version = "2.3.3"
+description = "SSE plugin for Starlette"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "sse_starlette-2.3.3-py3-none-any.whl", hash = "sha256:8b0a0ced04a329ff7341b01007580dd8cf71331cc21c0ccea677d500618da1e0"},
+    {file = "sse_starlette-2.3.3.tar.gz", hash = "sha256:fdd47c254aad42907cfd5c5b83e2282be15be6c51197bf1a9b70b8e990522072"},
+]
+
+[package.dependencies]
+anyio = ">=4.7.0"
+starlette = ">=0.41.3"
+
+[package.extras]
+examples = ["fastapi"]
+uvicorn = ["uvicorn (>=0.34.0)"]
+
+[[package]]
 name = "starlette"
 version = "0.46.2"
 description = "The little ASGI library that shines."
@@ -1853,4 +1872,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9"
-content-hash = "3fc03429c6af9204b1caeafe1aa7fb29e7faa1ac82c71ce2eb0a060c57774399"
+content-hash = "9baff4567437772a7eef60398920ac03afe8d732c11d7be652f776bd38d0626a"

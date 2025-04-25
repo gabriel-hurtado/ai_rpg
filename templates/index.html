@@ -118,30 +118,22 @@
                       <div id="chat-error"></div> {# For OOB error swaps #}
                  </div>
 
-                 {# --- INPUT FORM AREA (Moved Below) --- #}
+                 {# --- INPUT FORM AREA (Streaming, JS-based, not HTMX) --- #}
                  <form id="ai-generation-form"
                        class="ai-tool-form mx-auto"
-                       style="max-width: 700px; display: none;" {# Initially hidden #}
-                       hx-post="/api/v1/chat/message"  {# Correct endpoint #}
-                       hx-target="#chat-message-list"  {# Target inner div #}
-                       hx-swap="beforeend"             {# Append new messages #}
-                       hx-indicator="#ai-loading-indicator"
-                       hx-headers='js:{"Authorization": "Bearer " + getAuthTokenForHtmx()}'
-                       hx-disabled-elt="#ai-generate-button"
-                       {# Reset form after successful request (handled by backend response + htmx swap) #}
-                       {# Optionally use hx-on::after-request="if(event.detail.successful) this.reset()" #}
-                       >
-                     <div class="d-flex align-items-center"> {# Use flexbox for inline layout #}
-                         <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
-                         <textarea class="form-control form-control-lg bg-light me-2" id="ai-prompt-input" name="prompt" rows="1" style="resize: none; height: auto;" placeholder="Enter your prompt here..." required disabled></textarea>
-                         <button type="submit" id="ai-generate-button" class="btn btn-lg custom-btn custom-btn-secondary flex-shrink-0" disabled> {# Secondary style #}
-                             <i class="bi bi-magic"></i> {# Just icon for smaller button #}
-                         </button>
-                         <div id="ai-loading-indicator" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status"> {# Default CSS hides/shows #}
-                             <span class="visually-hidden">Loading...</span>
-                         </div>
-                     </div>
-                 </form>
+                       action="/api/v1/chat/message" method="post"
+                       style="max-width: 700px; display: none;">
+                      <div class="d-flex align-items-center">
+                          <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
+                          <textarea class="form-control form-control-lg bg-light me-2" id="ai-prompt-input" name="prompt" rows="1" style="resize: none; height: auto;" placeholder="Enter your prompt here..." required disabled></textarea>
+                          <button type="submit" id="ai-generate-button" class="btn btn-lg custom-btn custom-btn-secondary flex-shrink-0" disabled>
+                              <i class="bi bi-magic"></i>
+                          </button>
+                          <div id="ai-loading-indicator" class="spinner-border spinner-border-sm ms-2" role="status" style="display:none;">
+                              <span class="visually-hidden">Loading...</span>
+                          </div>
+                      </div>
+                  </form>
 
             </div> {# End tool-access-area #}
         </div> {# End container #}

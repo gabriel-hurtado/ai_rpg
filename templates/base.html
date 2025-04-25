@@ -31,6 +31,8 @@
     <link href="/static/style.css" rel="stylesheet">
     <link href="/static/chat.css" rel="stylesheet">
 
+    <!-- Marked.js for Markdown Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <title>{% block title %}{{ app_title | default('AI RPG Builder') }} - AI TTRPG Forge{% endblock %}</title>
 </head>
@@ -67,7 +69,7 @@
         </main>
 
         <footer class="container text-center mt-5 py-5">
-             <p class="small text-muted opacity-75">© 2024 {{ app_title | default('AI RPG') }}. Forge Your Legend.</p>
+             <p class="small text-muted opacity-75"> 2024 {{ app_title | default('AI RPG') }}. Forge Your Legend.</p>
         </footer>
 
     </div> {# End page-wrapper #}

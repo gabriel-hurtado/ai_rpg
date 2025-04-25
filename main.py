@@ -1,7 +1,7 @@
-# main.py - Complete with Credit System, AI Chat History, Config Endpoint
+# main.py - Final Version for Phase 4 (Credits, History, Config, Non-Streaming AI)
 
-from fastapi import FastAPI, Request, Depends, HTTPException, Header, APIRouter, Form 
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, Depends, HTTPException, Header, APIRouter, Form
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -10,17 +10,17 @@ import logging
 from datetime import datetime, timedelta, timezone
 import asyncio
 from contextlib import asynccontextmanager
-from typing import List, Optional # For type hinting
+from typing import List, Optional
 
-# Pydantic for request body validation
+# Pydantic for request body validation (kept for potential future use)
 from pydantic import BaseModel
 
 # Database imports
 from database import get_session, engine # Assuming database.py defines engine and get_session
-# Comment out create_db_and_tables if using Alembic
+# Using create_all for now - COMMENT OUT IF USING ALEMBIC
 from database import create_db_and_tables
 from models import User as DBUser, ChatMessage # Import the models
-from sqlmodel import Session, select, col # Added col for ordering
+from sqlmodel import Session, select, col
 
 # PropelAuth Imports
 from propelauth_fastapi import init_auth, User as PropelUser
@@ -57,10 +57,10 @@ if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
     logger.info("Stripe API Key configured.")
     stripe_configured = True
-    if not STRIPE_WEBHOOK_SECRET: logger.warning("Stripe Webhook Secret not found.")
-    if not STRIPE_PRICE_ID: logger.warning("Stripe Price ID not found.")
+    if not STRIPE_WEBHOOK_SECRET: logger.warning("Stripe Webhook Secret not found in .env. Webhook verification will fail.")
+    if not STRIPE_PRICE_ID: logger.warning("Stripe Price ID not found in .env. Cannot create checkout sessions.")
 else:
-    logger.warning("Stripe Secret Key not found. Payment features disabled.")
+    logger.warning("Stripe Secret Key not found in .env. Payment features will be disabled.")
 
 
 # --- Initialize PropelAuth ---
@@ -112,30 +112,18 @@ else:
 
 # --- Safe Dependency Wrappers ---
 async def safe_optional_user(user: Optional[PropelUser] = Depends(optional_user) if optional_user else None):
-     # If optional_user is None (auth failed init), this will depend on None, which is okay for optional.
-     # FastAPI handles the case where the dependency returns None gracefully.
      return user
 
 async def safe_require_user(user: Optional[PropelUser] = Depends(require_user) if require_user else None):
-    # Check if the dependency factory itself exists first
-    if require_user is None:
-         logger.error("Auth service unavailable - require_user dependency not initialized.")
-         raise HTTPException(status_code=503, detail="Authentication service unavailable")
-    # If the factory exists, let it run. It will raise 401 internally if user is None.
-    # The Depends(require_user) call itself handles the 401 when not logged in.
-    # This check is mainly for the case where init_auth failed entirely.
-    if user is None and require_user is not None:
-         # This state shouldn't be reached if require_user is working correctly
-         logger.error("safe_require_user: require_user dependency yielded None unexpectedly.")
-         raise HTTPException(status_code=500, detail="Internal authentication error")
-    return user # Returns the validated PropelUser object
-
+    if require_user is None: raise HTTPException(status_code=503, detail="Auth service unavailable")
+    if user is None: raise HTTPException(status_code=401, detail="Not authenticated") # Should be handled by require_user itself
+    return user
 
 # --- Lifespan Context Manager ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("FastAPI application starting up...")
-    # Comment out if using Alembic
+    # Run create_all if NOT using Alembic. Comment out if using Alembic.
     create_db_and_tables()
     logger.info("Startup tasks complete.")
     yield
@@ -153,7 +141,7 @@ logger.info("Static files and Jinja2 templates configured.")
 # --- Database User Sync Helper ---
 async def get_or_create_db_user(propel_user: PropelUser, db: Session = Depends(get_session)) -> Optional[DBUser]:
     if not propel_user or not propel_user.user_id: return None
-    logger.info(f"DB Check/Create for PropelAuth ID: {propel_user.user_id}")
+    # logger.debug(f"DB Check/Create for PropelAuth ID: {propel_user.user_id}") # Use debug level
     try:
         statement = select(DBUser).where(DBUser.propelauth_user_id == propel_user.user_id)
         db_user = db.exec(statement).first()
@@ -163,15 +151,16 @@ async def get_or_create_db_user(propel_user: PropelUser, db: Session = Depends(g
             db_user = DBUser(propelauth_user_id=propel_user.user_id, email=user_email, credits=0, ai_interactions_used=0, credit_activation_time=None)
             db.add(db_user); db.commit(); db.refresh(db_user)
             logger.info(f"New DB user created with ID: {db_user.id}")
-        # else: logger.info(f"Found existing DB user with ID: {db_user.id}") # Reduce log noise
+        # else: logger.debug(f"Found existing DB user with ID: {db_user.id}") # Use debug level
         return db_user
     except Exception as e:
-        logger.error(f"DB error in get_or_create_db_user: {e}", exc_info=True)
+        logger.error(f"DB error in get_or_create_db_user for {propel_user.user_id}: {e}", exc_info=True)
         db.rollback(); return None
 
 # --- Credit Status Check Helper ---
-def check_credit_status(db_user: DBUser) -> tuple[bool, str]:
-    if not db_user: return False, "User not found." # Added check for None user
+def check_credit_status(db_user: Optional[DBUser]) -> tuple[bool, str]:
+    """Checks if the user has valid, non-expired credit."""
+    if not db_user: return False, "User not found."
     if db_user.credits <= 0: return False, "No active credits."
     if db_user.ai_interactions_used >= MAX_AI_INTERACTIONS: return False, "Credit interaction limit reached."
     if db_user.credit_activation_time:
@@ -183,34 +172,30 @@ def check_credit_status(db_user: DBUser) -> tuple[bool, str]:
             return False, "Credit has expired."
     else:
         logger.warning(f"User {db_user.id} has {db_user.credits} credits but no activation time.")
-        return False, "Credit not activated." # Treat as invalid until payment sets activation time
+        return False, "Credit not activated."
     return True, "Credit valid."
 
-# --- Google AI Helper Function ---
+# --- Google AI Helper Function (Non-Streaming for now) ---
 async def call_google_ai(prompt: str, history: Optional[List[dict]] = None) -> Optional[str]:
+    """Calls the configured Google AI model with history and returns the text response."""
     if not google_ai_configured or not ai_model:
         logger.error("Google AI not configured.")
         return "Error: AI service is not configured."
+
     logger.info(f"Sending prompt to Google AI: {prompt[:80]}...")
     try:
-        # Handle chat history - ensure roles are 'user' and 'model'
+        # Format history for Gemini API
         formatted_history = []
         if history:
             for msg in history:
                  role = msg.get("role")
                  content = msg.get("content")
                  if role and content:
-                     # Gemini expects 'model' not 'ai'
                      formatted_history.append({"role": role if role == 'user' else 'model', "parts": [{"text": content}]})
 
-        # Use chat history if available
-        if formatted_history:
-             chat_session = ai_model.start_chat(history=formatted_history)
-             response = await chat_session.send_message_async(prompt)
-        else:
-             # Otherwise, send single prompt (system prompt is attached to ai_model)
-             response = await ai_model.generate_content_async(prompt)
-
+        # Start chat with history and send the new message
+        chat_session = ai_model.start_chat(history=formatted_history)
+        response = await chat_session.send_message_async(prompt) # Non-streaming call
 
         if not response.candidates:
              safety_info = response.prompt_feedback if hasattr(response, 'prompt_feedback') else 'Unknown reason'
@@ -227,11 +212,49 @@ async def call_google_ai(prompt: str, history: Optional[List[dict]] = None) -> O
         logger.error(f"Error calling Google AI API: {e}", exc_info=True)
         return f"Error: Could not connect to AI service ({type(e).__name__})."
 
+# --- Google AI Streaming Helper ---
+async def call_google_ai_stream(prompt: str, history: Optional[list] = None):
+    """Yields chunks of the AI response as they are produced. Falls back to non-streaming if streaming is not supported by SDK."""
+    if not google_ai_configured or not ai_model:
+        yield "Error: AI service is not configured."
+        return
+    try:
+        # Prepare messages for streaming
+        messages = []
+        if history:
+            for msg in history:
+                role = msg.get("role")
+                content = msg.get("content")
+                if role and content:
+                    messages.append({"role": role, "parts": [{"text": content}]})
+        messages.append({"role": "user", "parts": [{"text": prompt}]})
+
+        import asyncio
+        def try_stream():
+            # Try streaming if supported, else fallback to non-streaming
+            if hasattr(ai_model, "generate_content_stream"):
+                return ai_model.generate_content_stream(messages)
+            else:
+                # Fallback to non-streaming
+                return [ai_model.generate_content(messages)]
+
+        loop = asyncio.get_event_loop()
+        stream = await loop.run_in_executor(None, try_stream)
+        for chunk in stream:
+            if hasattr(chunk, 'text') and chunk.text:
+                yield chunk.text
+            elif hasattr(chunk, 'candidates') and chunk.candidates and hasattr(chunk.candidates[0], 'text'):
+                yield chunk.candidates[0].text
+            else:
+                yield str(chunk)
+    except Exception as e:
+        import traceback
+        yield f"Error: Could not connect to AI service ({type(e).__name__}): {e}\n{traceback.format_exc()}"
 
 # === ROOT ENDPOINT ===
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request, user: Optional[PropelUser] = Depends(safe_optional_user), db: Session = Depends(get_session)):
-    # logger.info(f"GET request for '/' - User authenticated: {user is not None}") # Reduce noise
+    # logger.debug(f"GET request for '/' - User authenticated: {user is not None}")
     db_user_data = None
     if user:
         db_user_instance = await get_or_create_db_user(user, db)
@@ -256,9 +279,28 @@ async def get_app_config():
 # --- User Info Endpoint ---
 @api_router.get("/user/me")
 async def get_current_user_info(request: Request, user: PropelUser = Depends(safe_require_user), db: Session = Depends(get_session)):
-    logger.info(f"GET request for '/api/v1/user/me' by user: {user.user_id}")
+    # logger.info(f"GET request for '/api/v1/user/me' by user: {user.user_id}")
     db_user_instance = await get_or_create_db_user(user, db)
     if not db_user_instance: raise HTTPException(status_code=500, detail="User data error.")
+
+    # --- Check and Expire Credits on fetch ---
+    is_valid, reason = check_credit_status(db_user_instance)
+    if not is_valid and reason == "Credit has expired." and db_user_instance.credits > 0:
+        logger.info(f"Expiring credits for user {db_user_instance.id} during /user/me fetch.")
+        try:
+            db_user_instance.credits = 0
+            db_user_instance.ai_interactions_used = 0
+            db_user_instance.credit_activation_time = None
+            db.add(db_user_instance)
+            db.commit()
+            db.refresh(db_user_instance)
+            logger.info(f"Credits successfully expired for user {db_user_instance.id}.")
+        except Exception as e:
+             logger.error(f"Failed to expire credits in DB for user {db_user_instance.id}: {e}", exc_info=True)
+             db.rollback() # Rollback this specific session on error
+             # Continue without raising error, frontend will see 0 credits
+    # --- End Credit Expiry Check ---
+
     return {
         "propel_user_id": user.user_id, "email": db_user_instance.email,
         "credits": db_user_instance.credits,
@@ -272,12 +314,11 @@ async def get_current_user_info(request: Request, user: PropelUser = Depends(saf
 async def get_chat_history(user: PropelUser = Depends(safe_require_user), db: Session = Depends(get_session)):
     logger.info(f"Fetching chat history for user {user.user_id}")
     db_user = await get_or_create_db_user(user, db)
-    if not db_user or not db_user.id:
-        raise HTTPException(status_code=404, detail="User database record not found")
-    # Limit history fetched/returned if it could get very long
+    if not db_user or not db_user.id: raise HTTPException(status_code=404, detail="User not found")
     statement = select(ChatMessage).where(ChatMessage.user_id == db_user.id).order_by(col(ChatMessage.timestamp).asc()) # .limit(50)
     messages = db.exec(statement).all()
-    history = [{"role": msg.role, "content": msg.content, "timestamp": msg.timestamp} for msg in messages]
+    # Return content suitable for rendering (AI content already markdown->html)
+    history = [{"role": msg.role, "content": msg.content if msg.role == 'user' else markdown.markdown(msg.content, extensions=['fenced_code', 'tables']), "timestamp": msg.timestamp} for msg in messages]
     logger.info(f"Returning {len(history)} messages for user {user.user_id}")
     return {"history": history}
 
@@ -297,17 +338,14 @@ async def create_checkout_session(user: PropelUser = Depends(safe_require_user))
         logger.error(f"Stripe Error creating session: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Payment error: {e}")
 
-# --- Pydantic model for AI prompt ---
-class PromptRequest(BaseModel):
-    prompt: str
-
-# --- AI Chat Message Endpoint ---
+# --- AI Chat Message Endpoint (Using Form Data, Streaming) ---
 @api_router.post("/chat/message", response_class=HTMLResponse)
-async def post_chat_message(prompt: str = Form(...), user: PropelUser = Depends(safe_require_user), db: Session = Depends(get_session)):
-    # Note: Changed payload to Depends() to auto-handle JSON body based on Pydantic model
-    # If using Form data from HTMX (no JS JSON conversion), change back to prompt: str = Form(...)
-    user_prompt = prompt # Access prompt from the Pydantic model
-
+async def post_chat_message(
+    prompt: str = Form(...), # Expect form data
+    user: PropelUser = Depends(safe_require_user),
+    db: Session = Depends(get_session)
+):
+    user_prompt = prompt
     logger.info(f"Chat message request from user {user.user_id}")
     db_user = await get_or_create_db_user(user, db)
     if not db_user: raise HTTPException(status_code=500, detail="User data error")
@@ -316,104 +354,54 @@ async def post_chat_message(prompt: str = Form(...), user: PropelUser = Depends(
     is_valid, reason = check_credit_status(db_user)
     if not is_valid:
         logger.warning(f"Credit check failed for user {user.user_id}: {reason}")
-        error_html = f"""<div id="chat-error" hx-swap-oob="true" class="alert alert-danger alert-dismissible fade show my-2" role="alert">Credit Error: {reason}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>"""
-        credits_html = f"""<span id="credits-display" hx-swap-oob="true" class="dropdown-item-text small text-muted">Credits: {db_user.credits} (N/A)</span>"""
+        error_html = f"""
+        <div id=\"chat-error\" hx-swap-oob=\"true\" class=\"alert alert-danger alert-dismissible fade show my-2\" role=\"alert\">
+        Credit Error: {reason}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\" aria-label=\"Close\"></button></div>"""
+        credits_html = f"""
+        <span id=\"credits-display\" hx-swap-oob=\"true\" class=\"dropdown-item-text small text-muted\">Credits: {db_user.credits} (N/A)</span>"""
         return HTMLResponse(content=error_html + credits_html, status_code=403)
 
-    if not google_ai_configured or not ai_model:
-         error_html = f"""<div id="chat-error" hx-swap-oob="true" class="alert alert-danger alert-dismissible fade show my-2" role="alert">AI Service Error: Not configured.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>"""
+    if not google_ai_configured:
+         error_html = f"""
+         <div id=\"chat-error\" hx-swap-oob=\"true\" class=\"alert alert-danger alert-dismissible fade show my-2\" role=\"alert\">AI Service Error: Not configured.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\" aria-label=\"Close\"></button></div>"""
          return HTMLResponse(content=error_html, status_code=503)
 
     # 2. Load History
-    logger.info("Loading chat history from DB...")
-    history_statement = select(ChatMessage).where(ChatMessage.user_id == db_user.id).order_by(col(ChatMessage.timestamp).asc()).limit(20) # Limit history context
+    logger.info("Loading chat history from DB for AI context...")
+    history_statement = select(ChatMessage).where(ChatMessage.user_id == db_user.id).order_by(col(ChatMessage.timestamp).asc()).limit(20) # Limit context
     db_history = db.exec(history_statement).all()
-    # Pass DB history directly to helper (convert inside helper if needed)
-    logger.info(f"Loaded {len(db_history)} messages for chat history.")
+    gemini_history = [{"role": m.role, "content": m.content} for m in db_history]
+    logger.info(f"Loaded {len(gemini_history)} messages for chat context.")
 
-    # 3. Call Google AI with history
-    ai_response_text = await call_google_ai(user_prompt, history=[{"role": m.role, "content": m.content} for m in db_history])
-
-    # --- Prepare results and update DB ---
-    interactions_remaining = MAX_AI_INTERACTIONS - db_user.ai_interactions_used # Before potential increment
-    formatted_response_html = ""
-    error_html = f"""<div id="chat-error" hx-swap-oob="true"></div>""" # Clear errors by default
-    status_code = 200
-
-    # 4. Handle AI Response (Success or Error)
-    if ai_response_text is None or ai_response_text.startswith("Error:"):
-        logger.warning(f"AI Generation failed/blocked for user {user.user_id}. Reason: {ai_response_text}")
-        # Format error for display
-        formatted_response_html = f"""<div class="alert alert-warning mt-2" role="alert">{ai_response_text or 'AI generation failed.'}</div>"""
-        status_code = 400 if "blocked" in (ai_response_text or "").lower() else 500
-        # Don't save or consume credit if AI failed/blocked
-    else:
-        # SUCCESSFUL AI Response
-        # 5. Save messages and Consume Credit
-        credit_consumed_this_turn = False
+    # 3. Stream AI Response
+    import markdown
+    async def ai_streamer():
+        buffer = ""
+        async for chunk in call_google_ai_stream(user_prompt, history=gemini_history):
+            buffer += chunk
+            html_chunk = markdown.markdown(chunk, extensions=['fenced_code', 'tables'])
+            yield html_chunk
+        # After streaming, save to DB (buffer contains full response)
         try:
-            with Session(engine) as save_session: # Use separate session for atomicity
+            with Session(engine) as save_session:
                 user_to_update = save_session.get(DBUser, db_user.id)
-                if not user_to_update: raise Exception("User disappeared during save")
-
-                # Save user message
+                if not user_to_update:
+                    logger.error("User vanished during streaming save.")
+                    return
                 user_msg_db = ChatMessage(user_id=user_to_update.id, role="user", content=user_prompt)
                 save_session.add(user_msg_db)
-                # Save AI model message
-                ai_msg_db = ChatMessage(user_id=user_to_update.id, role="model", content=ai_response_text)
+                ai_msg_db = ChatMessage(user_id=user_to_update.id, role="model", content=buffer)
                 save_session.add(ai_msg_db)
-                # Consume credit
                 user_to_update.ai_interactions_used += 1
-                interactions_remaining = MAX_AI_INTERACTIONS - user_to_update.ai_interactions_used
                 save_session.add(user_to_update)
                 save_session.commit()
-                credit_consumed_this_turn = True
-                logger.info(f"Saved chat messages. User {user.user_id} interactions: {user_to_update.ai_interactions_used}")
-
-                # Format successful response for display using Markdown
-                safe_user_prompt = user_prompt.replace('<', '<').replace('>', '>')
-                formatted_ai_response_html = markdown.markdown(ai_response_text, extensions=['fenced_code', 'tables', 'nl2br']) # Use nl2br for newlines
-
-                formatted_response_html = f"""
-                <div class="chat-message user-message p-2 my-2">
-                    <strong>You:</strong><p class="m-0">{safe_user_prompt}</p>
-                </div>
-                <div class="chat-message ai-message p-2 my-2">
-                    <strong>AI:</strong><div class="markdown-content">{formatted_ai_response_html}</div>
-                </div>
-                """
+                logger.info(f"Saved streamed chat. User {user.user_id} interactions: {user_to_update.ai_interactions_used}")
         except Exception as e:
-            logger.error(f"DB error saving chat/credits for user {user.user_id}: {e}", exc_info=True)
-            interactions_remaining = "DB Error"
-            status_code = 500
-            # Format error response, including the AI text if available
-            safe_user_prompt_err = user_prompt.replace('<', '<').replace('>', '>')
-            safe_ai_response_err = ai_response_text.replace('<', '<').replace('>', '>').replace('\n', '<br>')
-            formatted_response_html = f"""
-            <div class="chat-message user-message p-2 my-2">
-                <strong>You:</strong><p class="m-0">{safe_user_prompt_err}</p>
-            </div>
-            <div class="alert alert-danger mt-2" role="alert">Error saving message to history. AI response was:<div class="mt-2">{safe_ai_response_err}</div></div>
-            """
-
-    # 6. Create final HTML fragment with OOB swaps
-    # Re-fetch user from main session to get potentially updated credits if webhook ran
-    db.refresh(db_user)
-    current_credits = db_user.credits
-    # Use the accurately calculated remaining count if update succeeded
-    final_interactions_used = db_user.ai_interactions_used # Get latest count
-    final_remaining = MAX_AI_INTERACTIONS - final_interactions_used
-
-    credits_html = f"""<span id="credits-display" hx-swap-oob="true" class="dropdown-item-text small text-muted">Credits: {current_credits} ({max(0, final_remaining)} uses left)</span>"""
-
-    # Final fragment is the formatted messages/error + OOB swaps
-    final_html_fragment = formatted_response_html + credits_html + error_html
-
-    return HTMLResponse(content=final_html_fragment, status_code=status_code)
+            logger.error(f"DB error saving streamed chat/credits for user {user.user_id}: {e}", exc_info=True)
+    return StreamingResponse(ai_streamer(), media_type="text/html")
 
 # Mount the API router
 app.include_router(api_router)
-
 
 # === STRIPE WEBHOOK ===
 @app.post("/webhook/stripe")
@@ -451,7 +439,6 @@ async def stripe_webhook_endpoint(request: Request, stripe_signature: str = Head
                       else: logger.error(f"Webhook Error: User {propel_user_id} not found for payment {stripe_session_id}.")
              except Exception as e:
                   logger.error(f"DB error granting credit for user {propel_user_id}: {e}", exc_info=True)
-                  # Return 500 to potentially trigger Stripe retry
                   raise HTTPException(status_code=500, detail="DB error processing payment")
          elif not propel_user_id: logger.error(f"Webhook Error: client_reference_id missing in session {stripe_session_id}.")
          else: logger.warning(f"Session {stripe_session_id} completed but status '{payment_status}'. No credits granted.")
