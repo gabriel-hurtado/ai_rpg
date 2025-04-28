@@ -1,11 +1,12 @@
-// static/chat.js - v12 - Handles Conversation ID, Loads Latest Conversation
+// static/chat.js - v18 FINAL - Flexbox Layout, Minimal JS Resize
 
-console.log("[Chat] chat.js v12 loaded");
+console.log("[Chat] chat.js v18 FINAL loaded");
 
 // --- Global State ---
-let currentConversationId = null; // Track the active conversation
+let currentConversationId = null;
+// REMOVED: let rafPaddingId = null;
 
-// Basic HTML Escaping Function (Only for user messages if needed)
+// --- Utilities ---
 function escapeHtml(unsafe) {
     if (!unsafe) return "";
     return unsafe
@@ -16,71 +17,79 @@ function escapeHtml(unsafe) {
          .replace(/'/g, "&#039;");
 }
 
-// Auto-resize textarea to fit content
-function autoResizeTextarea(textarea) {
+// --- Function to ONLY Set Textarea Height ---
+// Calculates and applies the correct height to the textarea based on content.
+function setTextareaHeight(textarea) {
     if (!textarea) return;
-    textarea.style.height = 'auto'; // Reset height first
-    const newHeight = Math.min(Math.max(textarea.scrollHeight, 46), 300); // Use scrollHeight, respect CSS min/max
-    textarea.style.height = newHeight + 'px';
 
-    // --- Adjustments for Fullscreen ---
-    const form = document.getElementById('ai-generation-form');
-    const chatList = document.getElementById('chat-message-list');
-    const isFullscreen = document.body.classList.contains('chat-fullscreen-active');
+    const minHeight = 46; // Match CSS min-height
+    const maxHeight = 300; // Match CSS max-height
 
-    if (isFullscreen && form && chatList) {
-        const formHeight = newHeight + 35; // Approx padding
-        form.style.height = formHeight + 'px';
-        const basePadding = 80;
-        const extraPadding = Math.max(0, newHeight - 46);
-        const totalPadding = basePadding + extraPadding;
-        chatList.style.paddingBottom = totalPadding + 'px';
+    // Store current height before changing it
+    const initialHeight = textarea.style.height;
+
+    // Reset height to minHeight before calculating scrollHeight for consistency
+    textarea.style.height = `${minHeight}px`;
+
+    // Calculate needed height based on content scroll height
+    const scrollHeight = textarea.scrollHeight;
+
+    // Determine new height, constrained by min/max
+    const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+    const newHeightPx = `${newHeight}px`;
+
+    // Apply the new height only if it actually changed to prevent infinite loops
+    if (newHeightPx !== initialHeight) {
+        textarea.style.height = newHeightPx;
+        // console.log(`[SetHeight] Textarea scrollH: ${scrollHeight}, newH: ${newHeight}`);
+    } else {
+        // If height didn't change, put back the original style value
+        // This can happen if scrollHeight is slightly off but rounds to same constrained height
+        textarea.style.height = initialHeight;
     }
-    // --- End Fullscreen Adjustments ---
+    // NO padding adjustment needed here - Flexbox handles layout
 }
 
-// Scroll chat container to the bottom
+// REMOVED: adjustChatListPadding()
+// REMOVED: requestFullscreenLayoutAdjustment()
+
+// --- Scroll function ---
+// Scrolls the specified container smoothly (or instantly) to the bottom.
 function scrollToBottom(containerId = 'ai-result-output') {
     const container = document.getElementById(containerId);
     if (container) {
-        // Use setTimeout to ensure DOM updates are rendered before scrolling
-        setTimeout(() => {
-            container.scrollTop = container.scrollHeight;
-            // console.log(`[Scroll] Scrolled ${containerId} to bottom: ${container.scrollHeight}`);
-        }, 50); // Small delay might be needed
-         // Maybe a second attempt
-        setTimeout(() => {
-            container.scrollTop = container.scrollHeight;
-        }, 200);
-    } else {
-        console.warn(`[Scroll] Container #${containerId} not found.`);
+        // Use requestAnimationFrame to scroll after potential DOM updates
+        requestAnimationFrame(() => {
+             // Use behavior: 'auto' for instant scroll, often better with dynamic content
+             container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+        });
     }
 }
 
-
-// --- NEW: Load and Display Messages for a Specific Conversation ---
+// --- Load and Display Messages for a Specific Conversation ---
 async function loadAndDisplayConversation(conversationId) {
     const chatDisplay = document.getElementById('chat-message-list');
-    if (!chatDisplay) {
-        console.error("[Chat Load] Chat display element not found.");
-        return;
-    }
+    if (!chatDisplay) { console.error("[Chat Load] Chat display element not found."); return; }
+
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+
+    // Handle displaying initial prompt if no conversation ID is provided
     if (!conversationId) {
-         console.log("[Chat Load] No specific conversation ID provided. Displaying initial prompt.");
+         console.log("[Chat Load] No specific conversation ID. Displaying initial prompt.");
          chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Start a new conversation!</p>';
-         currentConversationId = null; // Ensure state is null
+         currentConversationId = null;
          return;
+    }
+
+    // Handle case where user isn't logged in
+    if (!token) {
+        console.warn("[Chat Load] Cannot load conversation: No auth token.");
+        chatDisplay.innerHTML = '<p class="text-danger small text-center initial-chat-prompt">Please log in to load conversation.</p>';
+        return;
     }
 
     console.log(`[Chat Load] Loading messages for conversation ID: ${conversationId}...`);
     chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Loading conversation...</p>';
-
-    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-    if (!token) {
-        console.warn("[Chat Load] Cannot load conversation: No auth token.");
-        chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Please log in.</p>';
-        return;
-    }
 
     try {
         const response = await fetch(`/api/v1/conversations/${conversationId}`, {
@@ -90,402 +99,380 @@ async function loadAndDisplayConversation(conversationId) {
         if (response.status === 404) {
              console.log(`[Chat Load] Conversation ${conversationId} not found or not accessible.`);
              chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Conversation not found. Start a new one!</p>';
-             currentConversationId = null; // Reset state if conversation doesn't exist
+             currentConversationId = null; // Reset state
              return;
         }
         if (!response.ok) {
-            console.error(`[Chat Load] Failed to fetch conversation ${conversationId}: ${response.status}`);
+            const errorText = await response.text();
+            console.error(`[Chat Load] Failed to fetch conversation ${conversationId}: ${response.status}`, errorText);
             chatDisplay.innerHTML = '<p class="text-danger small text-center">Error loading conversation.</p>';
             return;
         }
 
         const data = await response.json();
 
-        if (data.messages && data.messages.length > 0) {
-            console.log(`[Chat Load] Received ${data.messages.length} messages for conversation ${conversationId}.`);
-            let historyHTML = '';
-            data.messages.forEach(message => {
-                const isUser = message.role === 'user';
-                const roleClass = isUser ? 'user-message' : 'ai-message';
-                const roleLabel = isUser ? 'You' : 'AI';
-                let content = message.content || ''; // Handle potentially missing content
+        // Validate response structure
+        if (data.conversation && data.messages && Array.isArray(data.messages)) {
+            if (data.messages.length > 0) {
+                console.log(`[Chat Load] Received ${data.messages.length} messages for conversation ${conversationId}.`);
+                let historyHTML = '';
+                // Build HTML for messages
+                data.messages.forEach(message => {
+                    const isUser = message.role === 'user';
+                    const roleClass = isUser ? 'user-message' : 'ai-message';
+                    const roleLabel = isUser ? 'You' : 'AI';
+                    let content = message.content || '';
 
-                // Render user messages safely, AI messages with markdown
-                if (isUser) {
-                    content = `<p class="m-0">${escapeHtml(content).replace(/\n/g, '<br>')}</p>`;
-                } else if (window.marked) {
-                    // Render markdown for AI, ensure basic safety (though Marked does some)
-                    content = `<div class="markdown-content p-0 m-0">${marked.parse(content)}</div>`;
-                } else {
-                     content = `<div class="markdown-content p-0 m-0">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`; // Fallback
-                }
-
-                historyHTML += `
-                    <div class="chat-message ${roleClass} p-2 my-2">
-                        <strong>${roleLabel}:</strong>
-                        ${content}
-                    </div>`;
-            });
-            chatDisplay.innerHTML = historyHTML;
+                    if (isUser) {
+                        content = `<p class="m-0">${escapeHtml(content).replace(/\n/g, '<br>')}</p>`;
+                    } else if (window.marked) {
+                        content = `<div class="markdown-content p-0 m-0">${marked.parse(content)}</div>`;
+                    } else {
+                        content = `<div class="markdown-content p-0 m-0">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`; // Fallback
+                    }
+                    const timestamp = message.timestamp ? new Date(message.timestamp).toLocaleString() : ''; // Optional timestamp display
+                    historyHTML += `<div class="chat-message ${roleClass}" title="${timestamp}"><strong>${roleLabel}</strong>${content}</div>`;
+                });
+                chatDisplay.innerHTML = historyHTML;
+            } else {
+                 // Conversation exists but is empty
+                 console.log(`[Chat Load] Conversation ${conversationId} exists but has no messages.`);
+                 chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Conversation started. Send your first message!</p>';
+            }
             currentConversationId = conversationId; // Set the active conversation ID
             console.log(`[Chat Load] Set currentConversationId = ${currentConversationId}`);
         } else {
-            console.log(`[Chat Load] Conversation ${conversationId} has no messages.`);
-            // If the conversation exists but is empty, allow user to start typing
-            chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Conversation started. Send your first message!</p>';
-            currentConversationId = conversationId; // Set the active conversation ID
-             console.log(`[Chat Load] Set currentConversationId = ${currentConversationId} (empty conversation)`);
+             console.error("[Chat Load] Invalid data structure received for conversation details:", data);
+             chatDisplay.innerHTML = '<p class="text-danger small text-center">Error loading conversation data.</p>';
+             currentConversationId = null; // Reset ID if data is bad
         }
 
-        scrollToBottom();
+        scrollToBottom(); // Scroll after rendering messages
 
     } catch (e) {
         console.error(`[Chat Load] Error fetching or rendering conversation ${conversationId}:`, e);
         chatDisplay.innerHTML = '<p class="text-danger small text-center">Error loading conversation.</p>';
+        currentConversationId = null; // Reset ID on error
     }
 }
 
-// --- Load the User's Most Recent Conversation (Corrected) ---
+// --- Load the User's Most Recent Conversation ---
 async function loadLatestConversation() {
     const chatDisplay = document.getElementById('chat-message-list');
     if (!chatDisplay) {
         console.error("[Chat Load] Cannot load latest: Chat display element not found.");
-        return; // Exit if display area doesn't exist
+        return;
     }
 
     console.log("[Chat Load] Attempting to load the latest conversation...");
-    // Initial loading message
     chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Finding latest conversation...</p>';
 
-    // Get token safely
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-    // Log token status before fetch
     console.log(`[Chat Load] Token check before fetching conversations: ${token ? 'Token Present' : 'Token MISSING'}`);
     if (!token) {
         console.warn("[Chat Load] Cannot load latest conversation: No auth token available.");
          chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Please log in to load conversations.</p>';
-        return; // Exit if no token
+        return;
     }
 
     try {
-        // Fetch the list of conversations
         const response = await fetch('/api/v1/conversations', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-
-        // Log the response status
         console.log(`[Chat Load] Fetch conversations response status: ${response.status}`);
 
         if (!response.ok) {
             console.error(`[Chat Load] Failed to fetch conversations list: ${response.status}, Body:`, await response.text());
             chatDisplay.innerHTML = '<p class="text-danger small text-center">Error finding conversations.</p>';
-            return; // Exit on fetch error
+            return;
         }
 
-        // Parse the JSON response - 'data' should be the array itself
-        const data = await response.json();
-        // Log the received data structure
+        const data = await response.json(); // Expecting an array directly
         console.log("[Chat Load] Received conversations data (should be an array):", data);
 
-        // --- CORRECTED CONDITION ---
-        // Check if 'data' itself is an array and has items
+        // Check if 'data' itself is a non-empty array
         if (data && Array.isArray(data) && data.length > 0) {
-            // Log number of conversations found
             console.log(`[Chat Load] Found ${data.length} conversations in the response array.`);
-
-            // Access the first conversation directly from 'data' (index 0)
-            const firstConversation = data[0];
-            // Log the first conversation object to inspect its structure
+            const firstConversation = data[0]; // Latest is first
             console.log("[Chat Load] First conversation object (latest):", firstConversation);
 
-            // Check if the first conversation object exists and has a valid 'id' property
-            if (firstConversation && typeof firstConversation.id === 'number') { // Check type too
+            // Check if the latest conversation has a valid ID
+            if (firstConversation && typeof firstConversation.id === 'number') {
                  const latestConversationId = firstConversation.id;
-                 // Log the extracted ID
                  console.log(`[Chat Load] Extracted latest conversation ID: ${latestConversationId}`);
-                 // Proceed to load messages for this specific conversation
-                 await loadAndDisplayConversation(latestConversationId);
+                 await loadAndDisplayConversation(latestConversationId); // Load messages
             } else {
-                // Log an error if the structure is unexpected (missing 'id' or wrong type)
                 console.error("[Chat Load] ERROR: First conversation object is missing a valid 'id' property. Data:", data);
-                 // Fallback to showing no specific conversation
-                 await loadAndDisplayConversation(null);
+                 await loadAndDisplayConversation(null); // Fallback to no conversation
             }
         } else {
-            // Log if the response was not an array or was empty
-            console.log("[Chat Load] Response data is not a non-empty array, or no conversations found. Data:", data);
-            // Display the initial "start new" prompt
-            await loadAndDisplayConversation(null);
+            // No conversations found or invalid data
+            console.log("[Chat Load] No existing conversations found or data is not a non-empty array. Data:", data);
+            await loadAndDisplayConversation(null); // Display initial prompt
         }
-        // --- END CORRECTED CONDITION ---
 
     } catch (e) {
-        // Catch errors during fetch or JSON parsing
         console.error("[Chat Load] Error during fetch or processing conversations list:", e);
         chatDisplay.innerHTML = '<p class="text-danger small text-center">Error processing conversations.</p>';
+        await loadAndDisplayConversation(null); // Fallback on error
     }
 }
 
-// Ensure you also have the 'loadAndDisplayConversation' function defined elsewhere in chat.js
-// async function loadAndDisplayConversation(conversationId) { ... }
 
-// --- API submission and streaming (MODIFIED) ---
+// --- API Submission (with finally block, calls only setTextareaHeight) ---
 async function handleAPISubmission(userMessage, aiMessageDiv, textareaElement) {
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    let success = false; // Flag to track successful stream completion
+    const generateButton = document.getElementById('ai-generate-button');
+    const loadingIndicator = document.getElementById('ai-loading-indicator');
+
+    // Handle missing token case
     if (!token) {
         console.error("[Chat Submit] Cannot send message: No auth token.");
-        aiMessageDiv.querySelector('.markdown-content').innerHTML =
-            '<span class="text-danger">Authentication error. Please log in again.</span>';
+        if (aiMessageDiv) {
+             const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
+             if (markdownDiv) { markdownDiv.innerHTML = '<span class="text-danger">Authentication error. Please log in again.</span>'; }
+        }
+        // Re-enable form immediately if no token
+        if (textareaElement) textareaElement.disabled = false;
+        if (generateButton) generateButton.disabled = false;
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
         return;
     }
 
     try {
-        // Setup form data - ADD conversation_id IF IT EXISTS
+        // --- Setup Request ---
         const formData = new FormData();
         formData.append('prompt', userMessage);
-        if (currentConversationId !== null) { // Check if we have an active conversation ID
+        if (currentConversationId !== null) {
             formData.append('conversation_id', currentConversationId);
-            console.log(`[Chat Submit] Sending message for conversation ID: ${currentConversationId}`);
-        } else {
-            console.log("[Chat Submit] Sending message to start a NEW conversation.");
         }
+        const headers = { 'Authorization': `Bearer ${token}` };
 
-        const headers = {
-            // HTMX header not needed for fetch 'HX-Request': 'true',
-            'Authorization': `Bearer ${token}`
-             // 'Accept': 'text/plain' // Might help ensure streaming
-        };
+        // --- Fetch Call ---
+        const response = await fetch('/api/v1/chat/message', { method: 'POST', body: formData, headers: headers });
 
-        console.log('[Chat Submit] Sending API request to /api/v1/chat/message');
-        const response = await fetch('/api/v1/chat/message', {
-            method: 'POST',
-            body: formData,
-            headers: headers
-        });
-
-        // --- Check for new conversation ID in headers ---
+        // --- Handle New Conversation ID ---
         const newConvIdHeader = response.headers.get('X-Conversation-ID');
         if (newConvIdHeader) {
             const newId = parseInt(newConvIdHeader, 10);
             if (!isNaN(newId)) {
-                currentConversationId = newId;
-                console.log(`[Chat Submit] Received and set NEW currentConversationId = ${currentConversationId}`);
-                 // Optionally display the title too:
-                 // const newConvTitle = response.headers.get('X-Conversation-Title');
-                 // console.log(`[Chat Submit] New conversation title: ${newConvTitle}`);
-            }
+                 currentConversationId = newId;
+                 console.log(`[Chat Submit] Received and set NEW currentConversationId = ${currentConversationId}`);
+             }
         }
-        // --- End Header Check ---
 
+        // --- Handle HTTP Errors ---
         if (!response.ok) {
-            // Try to get error detail from backend
             let errorDetail = `Request failed with status: ${response.status}`;
-            try {
-                const errorJson = await response.json();
-                errorDetail = errorJson.detail || errorDetail;
-            } catch (e) { /* Ignore if response is not json */ }
+            try { const errorJson = await response.json(); errorDetail = errorJson.detail || errorDetail; } catch (e) { /* Ignore if not JSON */ }
             throw new Error(errorDetail);
         }
 
-        if (!response.body) {
-            throw new Error('Server response does not support streaming.');
-        }
+        // --- Handle Missing Stream Body ---
+        if (!response.body) { throw new Error('Server response does not support streaming or body is missing.'); }
 
-        // Handle streaming response
+        // --- Process Stream ---
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let aiResponseContent = ''; // Accumulate full response text
-        let firstChunk = true;
+        let aiResponseContent = '';
         const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
-        markdownDiv.innerHTML = ''; // Clear spinner immediately
+        if (!markdownDiv) {
+            console.error("[Chat Submit] Markdown display area (.markdown-content) not found in AI message div.");
+            aiMessageDiv.innerHTML += '<br><span class="text-warning">(Display error)</span> '; // Indicate issue
+        } else {
+            markdownDiv.innerHTML = ''; // Clear spinner only if div exists
+        }
 
         while (true) {
             const { value, done } = await reader.read();
-            if (done) break;
+            if (done) break; // Exit loop when stream ends
 
             const chunk = decoder.decode(value, { stream: true });
-            aiResponseContent += chunk; // Accumulate text
+            aiResponseContent += chunk; // Accumulate full response
 
-            // Render the accumulated text as markdown progressively
-             if (window.marked) {
-                 // Use marked.parse for progressive rendering
-                 markdownDiv.innerHTML = marked.parse(aiResponseContent);
-             } else {
-                 markdownDiv.textContent += chunk; // Fallback: simple text append
-             }
+            // Update display progressively
+            const displayTarget = markdownDiv || aiMessageDiv; // Fallback target
+            if (window.marked) { displayTarget.innerHTML = marked.parse(aiResponseContent); }
+            else { displayTarget.textContent = aiResponseContent; } // Use textContent for safety if marked fails
 
-            // Scroll as content arrives
-            scrollToBottom();
+            scrollToBottom(); // Scroll as content arrives
         }
 
-        // Final processing of the buffer is implicitly handled by accumulating aiResponseContent
-
-        console.log(`[Chat Submit] Stream finished. Full AI response length: ${aiResponseContent.length}`);
-
-        // Re-enable form, clear input AFTER stream finishes
-        if (textareaElement) {
-             textareaElement.value = '';
-             autoResizeTextarea(textareaElement); // Reset height
+        // --- Final Checks ---
+        if (aiResponseContent.startsWith("Error:")) {
+             console.warn("[Chat Submit] AI stream completed but contained an error message:", aiResponseContent);
+        } else if (aiResponseContent.trim() === "") {
+             console.warn("[Chat Submit] AI stream completed with empty content.");
+             if(markdownDiv) markdownDiv.innerHTML = '<span class="text-muted small">(Empty response received)</span>';
+        } else {
+            success = true; // Mark as successful only if stream finished without internal error and had content
         }
-        const generateButton = document.getElementById('ai-generate-button');
-         if(generateButton) generateButton.disabled = false;
-         const loadingIndicator = document.getElementById('ai-loading-indicator');
-         if(loadingIndicator) loadingIndicator.style.display = 'none';
-
 
     } catch (error) {
+        // --- Handle Fetch/Stream Errors ---
         console.error('[Chat Submit] API error:', error);
-        const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
-         if (markdownDiv) { // Ensure div exists before setting error
-             markdownDiv.innerHTML = `<span class="text-danger"><strong>Error:</strong> ${escapeHtml(error.message)}</span>`;
-         }
-         // Re-enable form even on error
-          if (textareaElement) textareaElement.disabled = false;
-          const generateButton = document.getElementById('ai-generate-button');
-          if(generateButton) generateButton.disabled = false;
-          const loadingIndicator = document.getElementById('ai-loading-indicator');
-         if(loadingIndicator) loadingIndicator.style.display = 'none';
+        if (aiMessageDiv) { // Display error in the message bubble
+            const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
+            const errorDisplayTarget = markdownDiv || aiMessageDiv; // Use markdownDiv or fallback to whole bubble
+            // Use textContent for error messages to prevent potential HTML injection
+            errorDisplayTarget.textContent = `Error: ${error.message}`;
+            errorDisplayTarget.classList.add('text-danger'); // Add error styling
+        }
+        // Error handled, proceed to finally block
+
+    } finally {
+        // --- Always Re-enable Form & Set Textarea Height ---
+        if (textareaElement) {
+            textareaElement.disabled = false;
+            if (success) {
+                textareaElement.value = ''; // Clear input only on success
+            }
+            // Set height immediately based on final content
+            setTextareaHeight(textareaElement); // ONLY call this
+        }
+        if (generateButton) { generateButton.disabled = false; }
+        if (loadingIndicator) { loadingIndicator.style.display = 'none'; }
+        // console.log("[Chat Submit] Finally block: Form re-enabled and resized.");
     }
 }
 
 
+// --- DOMContentLoaded Event Listener ---
 document.addEventListener('DOMContentLoaded', function() {
     console.log('[Chat] DOMContentLoaded');
 
-    // -- Elements --
+    // Get elements needed for event listeners
     const chatForm = document.getElementById('ai-generation-form');
     const zoomButton = document.getElementById('chat-zoom-toggle');
-    const chatDisplay = document.getElementById('chat-message-list');
     const promptInput = document.getElementById('ai-prompt-input');
-    const generateButton = document.getElementById('ai-generate-button');
-    const loadingIndicator = document.getElementById('ai-loading-indicator');
 
-
-    // Setup auto-resize for textarea
+    // Setup auto-resize listeners for the textarea
     if (promptInput) {
-        autoResizeTextarea(promptInput); // Initial size
-        promptInput.addEventListener('input', () => autoResizeTextarea(promptInput));
-        promptInput.addEventListener('focus', () => autoResizeTextarea(promptInput)); // Resize on focus too
-         // Handle Shift+Enter for new line, Enter for submit
-         promptInput.addEventListener('keydown', function(e) {
-             if (e.key === 'Enter' && !e.shiftKey) {
-                 e.preventDefault(); // Prevent default Enter behavior (new line)
-                 if (!generateButton.disabled) { // Check if button is enabled
-                     chatForm.requestSubmit(); // Trigger form submission
-                 }
-             }
-         });
+        // On input: Trigger height setting directly.
+        promptInput.addEventListener('input', () => {
+            setTextareaHeight(promptInput);
+        });
+        // On focus: Also trigger height setting directly.
+        promptInput.addEventListener('focus', () => {
+             setTextareaHeight(promptInput);
+        });
+        // Initial size calculation on load
+        setTextareaHeight(promptInput);
+
+        // Enter key listener for submission
+        promptInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { // Enter submits, Shift+Enter makes newline
+                e.preventDefault(); // Prevent newline on Enter
+                const generateButton = document.getElementById('ai-generate-button');
+                // Trigger form submission only if button isn't disabled
+                if (generateButton && !generateButton.disabled) {
+                    // chatForm.requestSubmit(generateButton); // Not universally supported
+                    generateButton.click(); // Simulate click on the button
+                }
+            }
+        });
     }
 
-    // Fullscreen Toggle
+    // Fullscreen Toggle Listener
     if (zoomButton) {
         zoomButton.addEventListener('click', function() {
-            document.body.classList.toggle('chat-fullscreen-active');
-            console.log('[Chat] Toggled fullscreen mode');
-            const isFullscreen = document.body.classList.contains('chat-fullscreen-active');
+            const body = document.body;
             const icon = this.querySelector('i');
-            if (icon) icon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
+            body.classList.toggle('chat-fullscreen-active'); // Toggle the class on body
+            const isFullscreen = body.classList.contains('chat-fullscreen-active');
+            console.log(`[Chat Zoom] Toggled fullscreen. Active: ${isFullscreen}`);
 
-            // Ensure elements are correctly displayed/hidden and sized
-            document.querySelectorAll('section:not(#ai-tool)').forEach(s => s.style.display = isFullscreen ? 'none' : '');
-            document.querySelectorAll('#ai-tool h2, #ai-tool > .container > p.lead').forEach(h => h.style.display = isFullscreen ? 'none' : '');
+            // Update the button icon
+            if (icon) {
+                icon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
+            }
 
-            // Re-apply textarea resize logic after mode change (affects form height in fullscreen)
-            if(promptInput) autoResizeTextarea(promptInput);
-            // Scroll to bottom after layout potentially changes
-            scrollToBottom();
+            // Recalculate layout adjustments after CSS has likely been applied
+            // Use timeout to allow potential CSS transitions start/finish
+            setTimeout(() => {
+                if (promptInput) {
+                    setTextareaHeight(promptInput); // Recalculate height which might affect form H
+                }
+                scrollToBottom(); // Ensure view is scrolled correctly after layout change
+            }, 50); // Small delay
         });
     }
 
-    // Form Submission Handling
+    // Form Submission Listener
     if (chatForm) {
         chatForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            console.log('[Chat] Form submit event triggered.');
+             e.preventDefault(); // Prevent standard form submission
 
-            if (!promptInput || !chatDisplay || !generateButton || !loadingIndicator) {
-                 console.error("[Chat Submit] Required chat elements not found.");
+             // Re-get elements inside listener to ensure they exist
+             const currentPromptInput = document.getElementById('ai-prompt-input');
+             const chatDisplay = document.getElementById('chat-message-list');
+             const currentGenerateButton = document.getElementById('ai-generate-button');
+             const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
+
+             // Ensure all required elements are present
+             if (!currentPromptInput || !chatDisplay || !currentGenerateButton || !currentLoadingIndicator) {
+                 console.error("[Chat Submit] One or more required chat elements not found on submit.");
                  return;
-            }
+             }
 
-            const userMessage = promptInput.value.trim();
-            if (!userMessage) {
-                console.log("[Chat Submit] Empty prompt submitted.");
-                return; // Don't submit empty messages
-            }
+             const userMessage = currentPromptInput.value.trim();
+             // Don't submit empty messages
+             if (!userMessage) {
+                 console.log("[Chat Submit] Empty prompt submitted.");
+                 return;
+             }
 
-            // Disable form during submission
-            promptInput.disabled = true;
-            generateButton.disabled = true;
-            loadingIndicator.style.display = 'inline-block';
+             // Disable form elements during submission
+             currentPromptInput.disabled = true;
+             currentGenerateButton.disabled = true;
+             currentLoadingIndicator.style.display = 'inline-block'; // Show spinner
 
-            console.log('[Chat Submit] User message:', userMessage);
+             // Clear any initial "Start conversation" prompt
+             const placeholder = chatDisplay.querySelector('.initial-chat-prompt');
+             if (placeholder) { placeholder.remove(); }
 
-            // Clear placeholder if it exists
-            const placeholder = chatDisplay.querySelector('.initial-chat-prompt');
-            if (placeholder) placeholder.remove();
+             // Display User Message immediately
+             const userDiv = document.createElement('div');
+             userDiv.className = 'chat-message user-message'; // Use specific class
+             // Ensure content wraps correctly and respects newlines
+             userDiv.innerHTML = `<strong>You:</strong><p class="m-0">${escapeHtml(userMessage).replace(/\n/g, '<br>')}</p>`;
+             chatDisplay.appendChild(userDiv);
 
-            // --- Display User Message ---
-            const userDiv = document.createElement('div');
-            userDiv.className = 'chat-message user-message p-2 my-2';
-            // Render markdown-like line breaks from textarea
-            userDiv.innerHTML = `<strong>You:</strong><p class="m-0">${escapeHtml(userMessage).replace(/\n/g, '<br>')}</p>`;
-            chatDisplay.appendChild(userDiv);
-            scrollToBottom(); // Scroll after adding user message
+             // Create placeholder for AI response
+             const aiDiv = document.createElement('div');
+             aiDiv.className = 'chat-message ai-message'; // Use specific class
+             // Include spinner inside the markdown container
+             aiDiv.innerHTML = `<strong>AI:</strong><div class="markdown-content"><span class="ai-loading-spinner spinner-border spinner-border-sm" role="status"></span><span class="visually-hidden">Generating...</span></div>`;
+             chatDisplay.appendChild(aiDiv);
 
-            // --- Prepare AI Response Placeholder ---
-            const aiDiv = document.createElement('div');
-            aiDiv.className = 'chat-message ai-message p-2 my-2';
-            // Use a container for markdown content
-            aiDiv.innerHTML = `<strong>AI:</strong><div class="markdown-content"><span class="ai-loading-spinner spinner-border spinner-border-sm" role="status"></span><span class="visually-hidden">Generating...</span></div>`;
-            chatDisplay.appendChild(aiDiv);
-            scrollToBottom(); // Scroll after adding placeholder
+             // Scroll down after adding messages
+             scrollToBottom();
 
-            // --- Call API Handler ---
-            // Pass elements needed for feedback (AI div, textarea)
-            handleAPISubmission(userMessage, aiDiv, promptInput);
+             // Call the async function to handle the API request and streaming
+             handleAPISubmission(userMessage, aiDiv, currentPromptInput);
         });
     }
-
 
     // --- Chat Initialization Function (called by auth.js) ---
     function initializeChat() {
+        // Prevent multiple initializations
         if (window.chatInitialized) {
-            console.log("[Chat Init] Chat already initialized.");
+            // console.log("[Chat Init] Chat already initialized.");
             return;
         }
         console.log("[Chat Init] Initializing chat interface...");
 
-        // Load the latest conversation instead of old global history
+        // Load the latest conversation for the user
         loadLatestConversation();
 
         window.chatInitialized = true; // Set flag
         console.log("[Chat Init] Chat interface initialized.");
-
-        // Dispatch event for auth.js if needed (optional, depends on auth.js implementation)
-        // document.dispatchEvent(new CustomEvent('chatScriptReady'));
     }
-
-    // Make function globally available for auth.js
+    // Expose initializeChat globally for auth.js to call
     window.initializeChat = initializeChat;
 
-    // --- Initial State Check ---
-    // If the user might already be logged in when this script runs,
-    // try initializing. auth.js will call it again if needed.
-    // This helps if chat.js loads slightly after auth.js determines login state.
-    // Add a small delay to increase chances auth.js has set the token.
-    setTimeout(() => {
-        if (window.getCurrentAccessToken && window.getCurrentAccessToken()) {
-             console.log("[Chat Init] Token found on load, attempting initial chat load.");
-             initializeChat();
-         } else {
-             console.log("[Chat Init] No token found on load, waiting for auth.js trigger.");
-             // Display initial prompt if no token yet
-             const chatDisplay = document.getElementById('chat-message-list');
-             if (chatDisplay && !chatDisplay.hasChildNodes()) { // Only if empty
-                chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Log in to start chatting.</p>';
-             }
-         }
-    }, 200); // 200ms delay
+    // Initial state check message - Rely on auth.js to call initializeChat
+    console.log("[Chat] chat.js setup complete. Waiting for auth trigger.");
 
 }); // End DOMContentLoaded
