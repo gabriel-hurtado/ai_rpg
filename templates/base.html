@@ -92,8 +92,8 @@
     {# PropelAuth library already loaded in <head> #}
 
     <!-- Your Custom Scripts - Load chat logic BEFORE auth logic -->
-    <script src="/static/chat.js"></script>
-    <script src="/static/auth.js"></script>
+    <script type="module" src="/static/chat.js"></script>
+    <script type="module" src="/static/auth.js"></script>
 
     {# Block for page-specific scripts (like index.html's HTMX helper) #}
     {% block scripts %}
