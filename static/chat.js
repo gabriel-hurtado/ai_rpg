@@ -218,6 +218,41 @@ async function loadLatestConversation() {
     }
 }
 
+// --- Credits Display Helper ---
+function updateHeaderCreditsFromResponse(response) {
+    const headerEl = document.getElementById('header-user-credits');
+    if (!headerEl) return;
+    const updatedCreditsHeader = response.headers.get('X-User-Credits');
+    if (updatedCreditsHeader !== null) {
+        const creditsInt = parseInt(updatedCreditsHeader, 10);
+        if (!isNaN(creditsInt)) {
+            headerEl.textContent = creditsInt;
+            headerEl.classList.add('credit-updated');
+            setTimeout(() => headerEl.classList.remove('credit-updated'), 600);
+        }
+    }
+}
+
+// --- Helper to fetch and update credits after streaming ---
+async function fetchAndUpdateCreditsDisplay() {
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    if (!token) return;
+    try {
+        const resp = await fetch('/api/v1/user/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            const credits = data.credits;
+            const headerEl = document.getElementById('header-user-credits');
+            const dropdownEl = document.getElementById('credits-display');
+            if (headerEl) headerEl.textContent = credits;
+            if (dropdownEl) dropdownEl.textContent = 'Credits: ' + credits;
+        }
+    } catch (e) {
+        console.error("Failed to fetch updated credits:", e);
+    }
+}
 
 // --- API Submission (with finally block, calls only setTextareaHeight) ---
 async function handleAPISubmission(userMessage, aiMessageDiv, textareaElement) {
@@ -262,6 +297,32 @@ async function handleAPISubmission(userMessage, aiMessageDiv, textareaElement) {
              }
         }
 
+        // --- Handle Updated Credits Header ---
+        const updatedCreditsHeader = response.headers.get('X-User-Credits');
+        if (updatedCreditsHeader !== null) {
+            const creditsInt = parseInt(updatedCreditsHeader, 10);
+            // Update both header and dropdown credit displays robustly
+            const headerEl = document.getElementById('header-user-credits');
+            const dropdownEl = document.getElementById('credits-display');
+            console.log('[Chat Submit] header-user-credits element:', headerEl);
+            console.log('[Chat Submit] credits-display element:', dropdownEl);
+            if (typeof updateCreditsDisplay === 'function') {
+                updateCreditsDisplay(creditsInt);
+            } else {
+                if (headerEl) {
+                    headerEl.textContent = creditsInt;
+                    headerEl.classList.add('credit-updated');
+                    setTimeout(() => headerEl.classList.remove('credit-updated'), 600);
+                }
+                if (dropdownEl) {
+                    dropdownEl.textContent = 'Credits: ' + creditsInt;
+                    dropdownEl.classList.add('credit-updated');
+                    setTimeout(() => dropdownEl.classList.remove('credit-updated'), 600);
+                }
+            }
+            console.log(`[Chat Submit] Updated credits from header: ${creditsInt}`);
+        }
+
         // --- Handle HTTP Errors ---
         if (!response.ok) {
             let errorDetail = `Request failed with status: ${response.status}`;
@@ -279,25 +340,18 @@ async function handleAPISubmission(userMessage, aiMessageDiv, textareaElement) {
         const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
         if (!markdownDiv) {
             console.error("[Chat Submit] Markdown display area (.markdown-content) not found in AI message div.");
-            aiMessageDiv.innerHTML += '<br><span class="text-warning">(Display error)</span> '; // Indicate issue
-        } else {
-            markdownDiv.innerHTML = ''; // Clear spinner only if div exists
+            throw new Error('Markdown display area not found.');
         }
-
         while (true) {
-            const { value, done } = await reader.read();
-            if (done) break; // Exit loop when stream ends
-
+            const { done, value } = await reader.read();
+            if (done) break;
             const chunk = decoder.decode(value, { stream: true });
-            aiResponseContent += chunk; // Accumulate full response
-
-            // Update display progressively
-            const displayTarget = markdownDiv || aiMessageDiv; // Fallback target
-            if (window.marked) { displayTarget.innerHTML = marked.parse(aiResponseContent); }
-            else { displayTarget.textContent = aiResponseContent; } // Use textContent for safety if marked fails
-
-            scrollToBottom(); // Scroll as content arrives
+            aiResponseContent += chunk;
+            markdownDiv.innerHTML = window.marked ? marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
+            scrollToBottom();
         }
+        // --- After streaming finishes, update credits via API ---
+        await fetchAndUpdateCreditsDisplay();
 
         // --- Final Checks ---
         if (aiResponseContent.startsWith("Error:")) {
@@ -336,7 +390,6 @@ async function handleAPISubmission(userMessage, aiMessageDiv, textareaElement) {
         // console.log("[Chat Submit] Finally block: Form re-enabled and resized.");
     }
 }
-
 
 // --- DOMContentLoaded Event Listener ---
 document.addEventListener('DOMContentLoaded', function() {

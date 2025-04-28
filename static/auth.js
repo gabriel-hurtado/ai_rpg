@@ -179,6 +179,12 @@ if (!authUrl) {
                        </ul>
                      </li>`;
 
+                // Update header credits display as well
+                const headerCredits = document.getElementById('header-user-credits');
+                const dropdownCredits = document.getElementById('credits-display');
+                if (headerCredits) headerCredits.textContent = credits;
+                if (dropdownCredits) dropdownCredits.textContent = 'Credits: ' + credits;
+
                  // Add logout listener robustly
                  setTimeout(() => {
                      const logoutButton = document.getElementById('logout-button-dynamic');
@@ -319,7 +325,7 @@ if (!authUrl) {
                     purchaseButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
 
                     try {
-                        const response = await fetch('/api/v1/create-checkout-session', {
+                        const response = await fetch('/api/v1/payment/create-checkout-session', {
                             method: 'POST',
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
