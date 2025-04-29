@@ -72,11 +72,18 @@ body {
       opacity: 1 !important; /* Defensive */
       visibility: visible !important; /* Defensive */
   }
-  .chat-message strong { /* "You:", "AI:" */
+  .chat-message strong.sender-label {
+      font-weight: var(--font-weight-semibold);
+      display: inline;
+      margin-bottom: 0;
+      font-size: 1em; /* Match body font size for coherence */
+      opacity: 0.8;
+  }
+  .chat-message strong {
       font-weight: var(--font-weight-semibold);
       display: block;
       margin-bottom: 4px;
-      font-size: 0.85em;
+      font-size: 1em; /* Match body font size for coherence */
       opacity: 0.8;
   }
   .chat-message p { /* Reset default p margins within messages */
@@ -84,7 +91,11 @@ body {
       margin-bottom: 0;
       max-width: none; /* Allow full width within bubble */
   }
-  .chat-message .markdown-content { margin: 0; padding: 0; }
+  .chat-message .markdown-content { 
+      margin: 0; 
+      padding: 0; 
+      font-size: 1em; /* Match chat-message font size */
+  }
   .chat-message .markdown-content p { margin-bottom: 0.5rem; }
   .chat-message .markdown-content p:last-child { margin-bottom: 0; }
   .chat-message .markdown-content ul,
@@ -109,6 +120,12 @@ body {
       font-size: 0.9em;
       word-wrap: break-word;
   }
+  .markdown-content strong {
+      display: initial;
+      margin-bottom: initial;
+      font-weight: bold;
+      font-size: 1em; /* Match body font size for coherence */
+  }
   
   /* User Message Specifics */
   .user-message {
@@ -127,6 +144,12 @@ body {
       border-bottom-left-radius: 4px;
   }
   .ai-message strong, .ai-message .markdown-content * { color: inherit !important; }
+  .ai-message {
+      font-size: 0.95rem;
+  }
+  body.chat-fullscreen-active .ai-message {
+      font-size: 0.92rem;
+  }
   
   
   /* Chat Input Form (Normal View) */
@@ -225,7 +248,7 @@ body {
       width: 100% !important; max-width: none !important;
       border-radius: 0 !important; border: none !important;
       background: var(--color-bg-dark) !important; /* Darker background */
-      padding: 15px 20px !important;
+      padding: 15px 4vw !important; /* Add side padding in fullscreen */
       margin: 0 !important;
       z-index: auto;
       /* Scrollbar Styles */

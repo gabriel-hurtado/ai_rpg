@@ -14,14 +14,15 @@ export function renderMessage(sender, content, chatDisplay) {
 
   let renderedContent;
   if (window.marked) {
-    const isLikelyPlain = !/[\*\_\`\[\]#\-]/.test(content);
-    const safeContent = isLikelyPlain ? content.replace(/\n/g, '  \n') : content;
-    renderedContent = `<div class="markdown-content">${window.marked.parse(safeContent)}</div>`;
+    if (window.marked.setOptions) {
+      window.marked.setOptions({ breaks: true }); // Treat single \n as <br>
+    }
+    renderedContent = `<div class="markdown-content">${window.marked.parse(content)}</div>`;
   } else {
     renderedContent = `<p class="m-0">${escapeHtml(content).replace(/\n/g, '<br>')}</p>`;
   }
 
-  div.innerHTML = `<strong>${sender === 'user' ? 'You' : 'AI'}:</strong>${renderedContent}`;
+  div.innerHTML = `<strong class="sender-label">${sender === 'user' ? 'You' : 'AI'}:</strong>${renderedContent}`;
   chatDisplay.appendChild(div);
 }
 
