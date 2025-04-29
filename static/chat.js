@@ -137,10 +137,8 @@ const ChatManager = {
       if (resp.ok) {
         const data = await resp.json();
         const credits = data.credits;
-        const headerEl = document.getElementById('header-user-credits');
-        const dropdownEl = document.getElementById('credits-display');
-        if (headerEl) headerEl.textContent = credits;
-        if (dropdownEl) dropdownEl.textContent = 'Credits: ' + credits;
+        const navbarCredits = document.getElementById('navbar-user-credits');
+        if (navbarCredits) navbarCredits.textContent = `Credits: ${credits}`;
       }
     } catch (e) {
       console.error('Failed to fetch updated credits:', e);

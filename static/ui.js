@@ -224,18 +224,3 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
   if (aiPromptInput) aiPromptInput.disabled = !canUseAI;
   if (aiGenerateButton) aiGenerateButton.disabled = !canUseAI;
 }
-
-/**
- * Updates the credits display in the navbar dynamically.
- * NOTE: This specific function might become redundant if updateNavbarUI handles it,
- * but keep it if called separately after credit changes without full auth check.
- * @param {number | string} credits - The number of credits to display.
- */
-export function updateCreditsDisplay(credits) {
-  const userCreditsSpan = document.getElementById(NAVBAR_USER_CREDITS_ID);
-  if (userCreditsSpan) {
-    userCreditsSpan.textContent = `Credits: ${credits ?? '--'}`;
-  } else {
-    console.warn(`[UI] Element #${NAVBAR_USER_CREDITS_ID} not found for dynamic update.`);
-  }
-}
