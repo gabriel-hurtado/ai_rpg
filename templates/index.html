@@ -70,126 +70,90 @@
                 </div>
             </div>
         </div>
-    </section>
-
+    </section>    
+    
     <!-- Pricing Section -->
-    <section id="pricing" class="py-5 section-bg-accent">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-6" data-aos="flip-up">
-                    <div class="card pricing-card modern-card text-center border-0 overflow-hidden">
-                         <div class="card-header pricing-header pt-4 pb-3 border-0">
-                            <h4 class="my-0 fw-bold text-primary">Homebrew Build Credit</h4>
+        <section id="pricing" class="py-5 section-bg-accent">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-lg-6" data-aos="flip-up">
+                        <div class="card pricing-card modern-card text-center border-0 overflow-hidden">
+                             {# ... card header, body, list ... #}
+                                <ul class="list-unstyled mt-3 mb-4 text-center small">
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Full AI Tool Access</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Extensive Generation*</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>Build a Complete Homebrew</li>
+                                    <li><i class="bi bi-check-circle text-success me-2"></i>No Subscriptions</li>
+                                </ul>
+                                {# Purchase button initially hidden by d-none, JS will show it #}
+                                <button type="button" class="w-100 btn btn-lg custom-btn custom-btn-primary rounded-pill purchase-button d-none" id="purchase-button">
+                                    <i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access
+                                </button>
+                                <small class="d-block text-muted mt-3 small">*Approx. 100 AI interactions.</small>
+                            {# ... rest of card ... #}
                         </div>
-                        <div class="card-body p-4">
-                            <div class="pricing-tag mb-4">
-                                €10 <span class="pricing-term">/ Project</span>
-                            </div>
-                            <ul class="list-unstyled mt-3 mb-4 text-center small">
-                                <li><i class="bi bi-check-circle text-success me-2"></i>Full AI Tool Access</li>
-                                <li><i class="bi bi-check-circle text-success me-2"></i>Extensive Generation*</li>
-                                <li><i class="bi bi-check-circle text-success me-2"></i>Build a Complete Homebrew</li>
-                                <li><i class="bi bi-check-circle text-success me-2"></i>No Subscriptions</li>
-                            </ul>
-                            {# Purchase button shown/hidden by auth.js #}
-                            <button type="button" class="w-100 btn btn-lg custom-btn custom-btn-primary rounded-pill purchase-button" id="purchase-button" style="display: none;"><i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access</button>
-                            <small class="d-block text-muted mt-3 small">*Approx. 100 AI interactions.</small>
-                        </div>
-                        <div class="pricing-glow"></div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
-
-    <!-- AI Tool Section -->
-     <section id="ai-tool" class="py-5 text-center">
-        <div class="container" data-aos="fade-up">
-            <h2 class="mb-4 display-5">The Adventure Forge</h2>
-            <div id="tool-access-area">
-                {# This prompt is shown/hidden by auth.js #}
-                <p class="lead text-muted mb-4">Please <a href="#" class="link-primary" id="login-link-tool-placeholder">log in</a> and purchase credit to unleash the AI.</p>
-
-                 {# --- CHAT HISTORY AREA --- #}
-                 <div id="ai-result-output" class="mb-3 text-start result-area p-3 rounded chat-container">
-                      <div id="chat-message-list">
-                          <p class="text-muted small text-center initial-chat-prompt">Chat history will appear here.</p>
-                      </div>
-                      <div id="chat-error"></div>
-                 </div>
-
-                 <!-- Single zoom button -->
-                 <button id="chat-zoom-toggle" class="chat-zoom-btn" title="Toggle fullscreen mode">
-                     <i class="bi bi-arrows-fullscreen"></i>
-                 </button>
-
-                 {# --- INPUT FORM AREA (Streaming, JS-based, not HTMX) --- #}
-                 <form id="ai-generation-form"
-                       class="ai-tool-form mx-auto"
-                       action="/api/v1/chat/message" method="post"
-                       style="max-width: 90%;">
-                      <div class="d-flex align-items-center w-100">
-                          <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
-                          <textarea class="form-control form-control-lg bg-light me-2" id="ai-prompt-input" name="prompt" rows="1" style="resize: none; height: auto; flex: 1 1 auto;" placeholder="Enter your prompt here..." required></textarea>
-                          <button type="submit" id="ai-generate-button" class="btn btn-lg custom-btn custom-btn-secondary flex-shrink-0">
-                              <i class="bi bi-magic"></i>
-                          </button>
-                          <div id="ai-loading-indicator" class="spinner-border spinner-border-sm ms-2" role="status" style="display:none;">
-                              <span class="visually-hidden">Loading...</span>
-                          </div>
-                      </div>
-                  </form>
-
-            </div> {# End tool-access-area #}
-        </div> {# End container #}
-    </section>
-
-{% endblock %}
-
-{% block scripts %}
-    {# Base scripts are inherited #}
-    {{ super() }}
-
-    {# Inline script specific to this page (HTMX helpers & event listeners) #}
-    <script>
-        console.log("Index page specific scripts loaded");
-
-        // Helper function for HTMX to get the current access token
-        function getAuthTokenForHtmx() {
-            if (window.currentAccessToken) { // Reads global var set by auth.js
-                return window.currentAccessToken;
-            }
-            console.warn("[HTMX Token Helper] No currentAccessToken found.");
-            return "";
-        }
-
-        // Optional: HTMX Event Listeners
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
-            console.log('HTMX request finished for:', evt.detail.pathInfo.path, 'Success:', evt.detail.successful);
-             // Re-enable button manually
-             const generateButton = document.getElementById('ai-generate-button');
-             if (generateButton) { generateButton.disabled = false; }
-
-             if (evt.detail.failed || !evt.detail.successful) {
-                console.error('HTMX request failed:', evt.detail.xhr?.status, evt.detail.xhr?.responseText);
-                const errorTarget = document.getElementById('chat-error');
-                // Avoid showing generic error if backend sent specific error via OOB
-                if(errorTarget && !errorTarget.innerHTML.includes('alert')) {
-                      errorTarget.innerHTML = `<div class="alert alert-danger mt-3 alert-dismissible fade show" role="alert">Request failed (${evt.detail.xhr?.status || 'Network Error'}). Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
-                 }
-            } else {
-                 // If successful, reset the form (unless hx-on handles it)
-                 const form = document.getElementById('ai-generation-form');
-                 if (form) form.reset();
-            }
-        });
-
-         document.body.addEventListener('htmx:beforeRequest', function(evt) {
-            console.log('HTMX request starting for:', evt.detail.pathInfo.path);
-            // Clear previous errors shown via OOB swap
-             const errorTarget = document.getElementById('chat-error');
-             if(errorTarget) errorTarget.innerHTML = '';
-         });
-
-    </script>
-{% endblock %}
+        </section>
+    
+        <!-- AI Tool Section -->
+         <section id="ai-tool" class="py-5 text-center">
+            <div class="container" data-aos="fade-up">
+                <h2 class="mb-4 display-5">The Adventure Forge</h2>
+    
+                {# Tool Access Area Container - Always rendered #}
+                <div id="tool-access-area">
+    
+                    {# Login/Credit Prompt - Initially visible, JS will hide if needed #}
+                    <p class="lead text-muted mb-4" id="tool-access-prompt">
+                        {# Default message, JS might change this or hide it #}
+                        Please <a href="#" data-action="login" class="link-primary">Login or Sign Up</a> to use the AI tools.
+                    </p>
+    
+                     {# Chat Area Container - Always rendered, visibility controlled by parent or specific styles #}
+                     <div id="chat-interface-container" class="d-none"> {# Initially hidden #}
+                         {# --- CHAT HISTORY AREA --- #}
+                         <div id="ai-result-output" class="mb-3 text-start result-area p-3 rounded chat-container">
+                              <div id="chat-message-list">
+                                  <p class="text-muted small text-center initial-chat-prompt">Loading chat...</p>
+                              </div>
+                              <div id="chat-error"></div>
+                         </div>
+    
+                         <!-- Single zoom button -->
+                         <button id="chat-zoom-toggle" class="chat-zoom-btn" title="Toggle fullscreen mode">
+                             <i class="bi bi-arrows-fullscreen"></i>
+                         </button>
+    
+                         {# --- INPUT FORM AREA (Streaming, JS-based, not HTMX) --- #}
+                         <form id="ai-generation-form"
+                               class="ai-tool-form mx-auto"
+                               action="/api/v1/chat/message" method="post"
+                               style="max-width: 90%;">
+                              <div class="d-flex align-items-center w-100">
+                                  <label for="ai-prompt-input" class="form-label visually-hidden">AI Prompt</label>
+                                  <textarea class="form-control form-control-lg bg-light me-2" id="ai-prompt-input" name="prompt" rows="1" style="resize: none; height: auto; flex: 1 1 auto;" placeholder="Enter your prompt here..." required disabled></textarea> {# Initially disabled #}
+                                  <button type="submit" id="ai-generate-button" class="btn btn-lg custom-btn custom-btn-secondary flex-shrink-0" disabled> {# Initially disabled #}
+                                      <i class="bi bi-magic"></i>
+                                  </button>
+                                  <div id="ai-loading-indicator" class="spinner-border spinner-border-sm ms-2" role="status" style="display:none;">
+                                      <span class="visually-hidden">Loading...</span>
+                                  </div>
+                              </div>
+                          </form>
+                     </div> {# End chat-interface-container #}
+    
+                </div> {# End tool-access-area #}
+            </div> {# End container #}
+        </section>
+    
+    {% endblock %}
+    
+    {% block scripts %}
+        {{ super() }}
+        {# Keep chat.js loading BEFORE auth.js if auth depends on ChatManager being ready #}
+        <script type="module" src="/static/chat.js"></script>
+        <script type="module" src="/static/auth.js"></script>
+        {# Remove the inline HTMX helper script unless you explicitly use HTMX elsewhere #}
+    {% endblock %}
