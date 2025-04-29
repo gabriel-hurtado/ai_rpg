@@ -149,17 +149,27 @@ const ChatManager = {
             console.error('Failed to fetch updated credits:', e);
         }
     },
-
+    
     /**
      * Initialize the chat (load latest conversation, set flag).
      */
     initializeChat() {
-        if (this.chatInitialized) return;
-        this.loadLatestConversation();
-        this.chatInitialized = true;
-        setTimeout(() => scrollToBottom('ai-result-output', false), 100);
-    },
-
+        // Explicitly reference the ChatManager object
+        if (ChatManager.chatInitialized) {
+            console.log('[Chat] InitializeChat called, but already initialized.');
+            return;
+        }
+        console.log('[Chat] Initializing chat...');
+ 
+        // Call method directly on the ChatManager object
+        ChatManager.loadLatestConversation();
+ 
+        // Set property directly on the ChatManager object
+        ChatManager.chatInitialized = true;
+        console.log('[Chat] Chat initialized flag set to true.');
+ 
+         setTimeout(() => scrollToBottom('ai-result-output', false), 100);
+     },
     /**
      * Set up all event listeners for chat UI.
      */
