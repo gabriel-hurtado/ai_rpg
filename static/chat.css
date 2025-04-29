@@ -1,5 +1,4 @@
-/* static/chat.css - v21 Cleaned - Flexbox FS Layout, Adjusted for #chat-interface-container - STYLED V5.1 (Full Width Prompt) */
-
+/* static/chat.css
 /* ==========================================================================
    Base & Dependencies
    ========================================================================== */
@@ -133,6 +132,7 @@ body {
     color: #1a1a1a !important;
     margin-left: auto; /* Align right */
     border-bottom-right-radius: 4px;
+    font-size: 0.95rem; /* Match AI message font size for consistency */
 }
 .user-message strong, .user-message p, .user-message .markdown-content * { color: inherit !important; }
 
@@ -319,32 +319,39 @@ body.chat-fullscreen-active #chat-message-list {
     padding-bottom: 10px; /* Space at bottom */
 }
 
-/* --- Input Form (Styled - Full Width Inner) --- */
-body.chat-fullscreen-active #chat-interface-container > #ai-generation-form {
-    display: flex;
-    flex-shrink: 0; /* Prevent vertical shrinking */
-    min-height: var(--form-min-height-fs, 80px);
-    width: 100%;
-    padding: 1rem 0; /* Vertical padding, horizontal handled by inner div */
-    background-color: var(--color-bg-dark); /* Match chat bg */
-    border-top: 1px solid var(--color-border);
-    box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.2); /* Subtle top shadow */
-    z-index: 5;
-    /* Center the inner content div */
-    justify-content: center;
-    align-items: center;
+/* --- Input Form (Styled - Full Width Inner) - REVISED V2 --- */
+/* Use a more specific selector to override style.css and inline styles */
+body.chat-fullscreen-active #chat-interface-container > #ai-generation-form#ai-generation-form.ai-tool-form {
+    display: flex !important;
+    flex-shrink: 0 !important;
+    min-height: var(--form-min-height-fs, 80px) !important;
+    width: 100% !important;         /* FORCE full width */
+    max-width: none !important;     /* FORCE override max-width */
+    margin-left: 0 !important;      /* FORCE override margin */
+    margin-right: 0 !important;     /* FORCE override margin */
+    padding: 1rem 2rem !important;  /* Apply padding for content */
+    box-sizing: border-box !important;
+    background-color: var(--color-bg-dark) !important;
+    border-top: 1px solid var(--color-border) !important;
+    box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.2) !important;
+    z-index: 5 !important;
+    align-items: center !important;
+    justify-content: normal !important; /* Reset justify-content from debug */
 }
-/* Inner centering div for form content - MODIFIED FOR FULL WIDTH */
+
+/* Inner div for form content - Keep Simplified */
 body.chat-fullscreen-active #chat-interface-container > #ai-generation-form > div {
-    width: 100% !important;         /* Make inner div full width */
-    max-width: none !important;     /* Remove max-width limit */
-    padding-left: 2rem !important;  /* Add padding L/R for content */
-    padding-right: 2rem !important;
-    box-sizing: border-box !important; /* Include padding in width */
+    width: 100%; /* Takes 100% of the padded form area */
     display: flex;
     align-items: flex-end;
     gap: 10px;
+    /* Ensure no accidental margins here */
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
 }
+
+
 /* Textarea Styling (Fullscreen - Styled) */
 body.chat-fullscreen-active textarea#ai-prompt-input {
     flex-grow: 1;
