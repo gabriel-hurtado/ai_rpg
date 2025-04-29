@@ -11,7 +11,7 @@ import { updateNavbarUI, updateToolAccessUI } from './ui.js';
 // --- Global Auth State ---
 let authClient = null;
 let currentAccessToken = null;
-const currentUserInfo = { // Centralized state object
+const currentUserInfo = {
   dbUserData: null,
   propelUserInfo: null,
   isLoggedIn: false,
@@ -108,11 +108,10 @@ async function fetchCombinedUserInfo(forceRefresh = false) {
  * @returns {boolean} True if the user has a positive number of credits.
  */
 function checkCreditValidity() {
-    const credits = currentUserInfo.dbUserData?.credits;
-    const result = typeof credits === 'number' && !isNaN(credits) && credits > 0;
-    return result;
+  const credits = currentUserInfo.dbUserData?.credits;
+  const result = typeof credits === 'number' && !isNaN(credits) && credits > 0;
+  return result;
 }
-
 
 /**
  * Update the entire UI by calling functions from ui.js.
@@ -136,29 +135,36 @@ async function updateUI() {
  */
 function handleChatInitialization(isLoggedIn, hasCredit) {
   if (isLoggedIn && hasCredit) {
-      const initializeChatFunction = window.ChatManager?.initializeChat;
-      if (typeof initializeChatFunction === 'function') {
-          console.log('[Auth] Conditions met, initializing chat.');
-          try {
-              if (window.ChatManager && !window.ChatManager.chatInitialized) {
-                   initializeChatFunction();
-              } else {
-                   console.log('[Auth] ChatManager indicates chat already initialized, skipping call.');
-              }
-          } catch (error) { console.error('[Auth] Error during ChatManager.initializeChat():', error); }
-      } else { console.warn('[Auth] ChatManager.initializeChat function not found or not ready.'); }
+    const initializeChatFunction = window.ChatManager?.initializeChat;
+    if (typeof initializeChatFunction === 'function') {
+      console.log('[Auth] Conditions met, initializing chat.');
+      try {
+        if (window.ChatManager && !window.ChatManager.chatInitialized) {
+          initializeChatFunction();
+        } else {
+          console.log('[Auth] ChatManager indicates chat already initialized, skipping call.');
+        }
+      } catch (error) {
+        console.error('[Auth] Error during ChatManager.initializeChat():', error);
+      }
+    } else {
+      console.warn('[Auth] ChatManager.initializeChat function not found or not ready.');
+    }
   } else {
-       console.log('[Auth] Conditions not met for chat initialization (isLoggedIn:', isLoggedIn, 'hasCredit:', hasCredit, ')');
-       const teardownChatFunction = window.ChatManager?.teardownChat;
-       if (typeof teardownChatFunction === 'function') {
-           if (window.ChatManager && window.ChatManager.chatInitialized) {
-               console.log('[Auth] Tearing down chat.');
-               try { teardownChatFunction(); } catch (error) { console.error('[Auth] Error tearing down chat:', error); }
-           }
-       }
+    console.log('[Auth] Conditions not met for chat initialization (isLoggedIn:', isLoggedIn, 'hasCredit:', hasCredit, ')');
+    const teardownChatFunction = window.ChatManager?.teardownChat;
+    if (typeof teardownChatFunction === 'function') {
+      if (window.ChatManager && window.ChatManager.chatInitialized) {
+        console.log('[Auth] Tearing down chat.');
+        try {
+          teardownChatFunction();
+        } catch (error) {
+          console.error('[Auth] Error tearing down chat:', error);
+        }
+      }
+    }
   }
 }
-
 
 /**
  * Handles delegated click events for login/logout actions from Navbar or inline links.
@@ -195,11 +201,11 @@ async function initializeAuthentication() {
   if (!authUrl) {
     console.error('[Auth Init] PropelAuth URL not found (data-auth-url attribute missing?). Auth disabled.');
     document.addEventListener('DOMContentLoaded', () => {
-        // Call UI functions to set initial logged-out state
-        updateNavbarUI(false, null, null, null); // No authUrl available
-        updateToolAccessUI(false, false);
-        const accessPrompt = document.getElementById('tool-access-prompt'); // Use constant TOOL_ACCESS_PROMPT_ID ?
-        if (accessPrompt) accessPrompt.textContent = 'Authentication service unavailable.';
+      // Call UI functions to set initial logged-out state
+      updateNavbarUI(false, null, null, null); // No authUrl available
+      updateToolAccessUI(false, false);
+      const accessPrompt = document.getElementById('tool-access-prompt'); // Use constant TOOL_ACCESS_PROMPT_ID ?
+      if (accessPrompt) accessPrompt.textContent = 'Authentication service unavailable.';
     });
     return;
   }
@@ -234,12 +240,12 @@ async function initializeAuthentication() {
       // Display an error in the navbar login button spot
       const loginItem = document.getElementById(AUTH_NAV_LOGIN_ITEM_ID); // Use constant
       const userItem = document.getElementById(AUTH_NAV_USER_ITEM_ID);   // Use constant
-      if(loginItem) {
-          loginItem.classList.remove('d-none');
-          loginItem.innerHTML = `<span class="nav-link text-danger small px-2 py-1" title="${err.message || 'Unknown auth init error'}"><i class="bi bi-exclamation-triangle-fill me-1"></i> Auth Error</span>`;
+      if (loginItem) {
+        loginItem.classList.remove('d-none');
+        loginItem.innerHTML = `<span class="nav-link text-danger small px-2 py-1" title="${err.message || 'Unknown auth init error'}"><i class="bi bi-exclamation-triangle-fill me-1"></i> Auth Error</span>`;
       }
       if (userItem) {
-          userItem.classList.add('d-none');
+        userItem.classList.add('d-none');
       }
     });
   }

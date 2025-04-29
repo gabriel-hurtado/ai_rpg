@@ -6,239 +6,230 @@ import { fetchConversations, fetchConversationById, sendChatMessage } from './ch
  * ChatManager orchestrates chat state, event wiring, and uses modular helpers for UI and API.
  */
 const ChatManager = {
-    currentConversationId: null,
-    chatInitialized: false,
+  currentConversationId: null,
+  chatInitialized: false,
 
-    /**
-     * Load the user's latest conversation or show the new conversation prompt.
-     */
-    async loadLatestConversation() {
-        const chatDisplay = document.getElementById('chat-message-list');
-        if (!chatDisplay) return;
-        chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Finding latest conversation...</p>';
-        const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-        if (!token) {
-            renderChatError('You must be logged in to load conversations.', chatDisplay);
-            return;
-        }
-        try {
-            const data = await fetchConversations(token);
-            if (Array.isArray(data) && data.length > 0) {
-                const latestConv = data[0];
-                this.currentConversationId = latestConv.id;
-                await this.loadAndDisplayConversation(latestConv.id);
-            } else {
-                await this.loadAndDisplayConversation(null);
-            }
-        } catch (e) {
-            renderChatError('Error processing conversations.', chatDisplay);
-            await this.loadAndDisplayConversation(null);
-        }
-    },
-
-    /**
-     * Load and display a specific conversation by ID.
-     */
-    async loadAndDisplayConversation(conversationId) {
-        const chatDisplay = document.getElementById('chat-message-list');
-        if (!chatDisplay) return;
-        const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-        if (!conversationId) {
-            chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Start a new conversation by sending a message.</p>';
-            this.currentConversationId = null;
-            scrollToBottom('ai-result-output', false); 
-            return;
-        }
-        try {
-            chatDisplay.innerHTML = '<p class="text-muted small text-center">Loading conversation...</p>';
-            const data = await fetchConversationById(conversationId, token);
-            if (!data || !Array.isArray(data.messages)) {
-                renderChatError('Error loading conversation data.', chatDisplay);
-                this.currentConversationId = null;
-            } else {
-                chatDisplay.innerHTML = '';
-                data.messages.forEach(msg => {
-                    renderMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, chatDisplay);
-                });
-                this.currentConversationId = conversationId;
-            }
-            scrollToBottom('ai-result-output', false); 
-        } catch (e) {
-            renderChatError('Error loading conversation.', chatDisplay);
-            this.currentConversationId = null;
-            scrollToBottom('ai-result-output', false);
-        }
-    },
-
-    /**
-     * Handle user message submission and display streaming AI response.
-     */
-    async handleAPISubmission(userMessage, aiMessageDiv, textareaElement) {
-        const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-        let success = false;
-        const generateButton = document.getElementById('ai-generate-button');
-        const loadingIndicator = document.getElementById('ai-loading-indicator');
-        if (!token) {
-            if (aiMessageDiv) {
-                aiMessageDiv.innerHTML = '<span class="text-danger">Error: Not logged in.</span>';
-            }
-            return;
-        }
-        try {
-            const response = await sendChatMessage({ prompt: userMessage, conversationId: this.currentConversationId, token });
-            if (!response.ok) throw new Error(await response.text());
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let aiResponseContent = '';
-            const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
-            if (!markdownDiv) throw new Error('Markdown display area not found.');
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
-                aiResponseContent += chunk;
-                markdownDiv.innerHTML = window.marked ? marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
-                scrollToBottom('ai-result-output', true); 
-            }
-            await this.fetchAndUpdateCreditsDisplay();
-            success = true;
-            // Fix: Clear textarea after successful submission
-            if (textareaElement && success) {
-                textareaElement.value = '';
-                setTextareaHeight(textareaElement);
-            }
-            // Always scroll after sending
-            scrollToBottom('ai-result-output', true); 
-        } catch (error) {
-            if (aiMessageDiv) {
-                const errorDisplayTarget = aiMessageDiv.querySelector('.markdown-content') || aiMessageDiv;
-                errorDisplayTarget.textContent = `Error: ${error.message}`;
-                errorDisplayTarget.classList.add('text-danger');
-            }
-            scrollToBottom('ai-result-output', true); 
-        } finally {
-            if (textareaElement) {
-                textareaElement.disabled = false;
-                if (success) setTextareaHeight(textareaElement);
-            }
-            if (generateButton) generateButton.disabled = false;
-            if (loadingIndicator) loadingIndicator.style.display = 'none';
-        }
-    },
-
-    /**
-     * Fetch and update the user's credits display in the UI.
-     */
-    async fetchAndUpdateCreditsDisplay() {
-        const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-        if (!token) return;
-        try {
-            const resp = await fetch('/api/v1/user/me', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (resp.ok) {
-                const data = await resp.json();
-                const credits = data.credits;
-                const headerEl = document.getElementById('header-user-credits');
-                const dropdownEl = document.getElementById('credits-display');
-                if (headerEl) headerEl.textContent = credits;
-                if (dropdownEl) dropdownEl.textContent = 'Credits: ' + credits;
-            }
-        } catch (e) {
-            // Only log error, don't disrupt UI
-            console.error('Failed to fetch updated credits:', e);
-        }
-    },
-    
-    /**
-     * Initialize the chat (load latest conversation, set flag).
-     */
-    initializeChat() {
-        // Explicitly reference the ChatManager object
-        if (ChatManager.chatInitialized) {
-            console.log('[Chat] InitializeChat called, but already initialized.');
-            return;
-        }
-        console.log('[Chat] Initializing chat...');
- 
-        // Call method directly on the ChatManager object
-        ChatManager.loadLatestConversation();
- 
-        // Set property directly on the ChatManager object
-        ChatManager.chatInitialized = true;
-        console.log('[Chat] Chat initialized flag set to true.');
- 
-         setTimeout(() => scrollToBottom('ai-result-output', false), 100);
-     },
-    /**
-     * Set up all event listeners for chat UI.
-     */
-    setupEventListeners() {
-        document.addEventListener('DOMContentLoaded', () => {
-            const chatForm = document.getElementById('ai-generation-form');
-            const zoomButton = document.getElementById('chat-zoom-toggle');
-            const promptInput = document.getElementById('ai-prompt-input');
-            if (promptInput) {
-                promptInput.addEventListener('input', () => {
-                    setTextareaHeight(promptInput, true); // Enable scroll on expand
-                });
-                promptInput.addEventListener('focus', () => setTextareaHeight(promptInput));
-                setTextareaHeight(promptInput);
-                promptInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        const generateButton = document.getElementById('ai-generate-button');
-                        if (generateButton && !generateButton.disabled) {
-                            generateButton.click();
-                        }
-                        // Scroll to bottom if in fullscreen mode
-                        if (document.body.classList.contains('chat-fullscreen')) {
-                            scrollToBottom('ai-result-output');
-                        }
-                    }
-                });
-            }
-            if (zoomButton) {
-                zoomButton.addEventListener('click', () => {
-                    const body = document.body;
-                    const icon = zoomButton.querySelector('i');
-                    body.classList.toggle('chat-fullscreen-active');
-                    const isFullscreen = body.classList.contains('chat-fullscreen-active');
-                    if (icon) {
-                        icon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
-                    }
-                    setTimeout(() => {
-                        if (promptInput) setTextareaHeight(promptInput);
-                        scrollToBottom('ai-result-output', false); 
-                    }, 50);
-                });
-            }
-            if (chatForm) {
-                chatForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const currentPromptInput = document.getElementById('ai-prompt-input');
-                    const chatDisplay = document.getElementById('chat-message-list');
-                    const currentGenerateButton = document.getElementById('ai-generate-button');
-                    const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
-                    if (!currentPromptInput || !chatDisplay || !currentGenerateButton || !currentLoadingIndicator) {
-                        return;
-                    }
-                    const userMessage = currentPromptInput.value.trim();
-                    if (!userMessage) {
-                        return;
-                    }
-                    currentPromptInput.disabled = true;
-                    currentGenerateButton.disabled = true;
-                    currentLoadingIndicator.style.display = 'inline-block';
-                    removeInitialPrompt(chatDisplay);
-                    renderMessage('user', userMessage, chatDisplay);
-                    const aiDiv = renderAIPlaceholder(chatDisplay);
-                    scrollToBottom('ai-result-output', false); 
-                    this.handleAPISubmission(userMessage, aiDiv, currentPromptInput);
-                });
-            }
-        });
+  /**
+   * Load the user's latest conversation or show the new conversation prompt.
+   */
+  async loadLatestConversation() {
+    const chatDisplay = document.getElementById('chat-message-list');
+    if (!chatDisplay) return;
+    chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Finding latest conversation...</p>';
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    if (!token) {
+      renderChatError('You must be logged in to load conversations.', chatDisplay);
+      return;
     }
+    try {
+      const data = await fetchConversations(token);
+      if (Array.isArray(data) && data.length > 0) {
+        const latestConv = data[0];
+        this.currentConversationId = latestConv.id;
+        await this.loadAndDisplayConversation(latestConv.id);
+      } else {
+        await this.loadAndDisplayConversation(null);
+      }
+    } catch (e) {
+      renderChatError('Error processing conversations.', chatDisplay);
+      await this.loadAndDisplayConversation(null);
+    }
+  },
+
+  /**
+   * Load and display a specific conversation by ID.
+   */
+  async loadAndDisplayConversation(conversationId) {
+    const chatDisplay = document.getElementById('chat-message-list');
+    if (!chatDisplay) return;
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    if (!conversationId) {
+      chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Start a new conversation by sending a message.</p>';
+      this.currentConversationId = null;
+      scrollToBottom('ai-result-output', false);
+      return;
+    }
+    try {
+      chatDisplay.innerHTML = '<p class="text-muted small text-center">Loading conversation...</p>';
+      const data = await fetchConversationById(conversationId, token);
+      if (!data || !Array.isArray(data.messages)) {
+        renderChatError('Error loading conversation data.', chatDisplay);
+        this.currentConversationId = null;
+      } else {
+        chatDisplay.innerHTML = '';
+        data.messages.forEach((msg) => {
+          renderMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, chatDisplay);
+        });
+        this.currentConversationId = conversationId;
+      }
+      scrollToBottom('ai-result-output', false);
+    } catch (e) {
+      renderChatError('Error loading conversation.', chatDisplay);
+      this.currentConversationId = null;
+      scrollToBottom('ai-result-output', false);
+    }
+  },
+
+  /**
+   * Handle user message submission and display streaming AI response.
+   */
+  async handleAPISubmission(userMessage, aiMessageDiv, textareaElement) {
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    let success = false;
+    const generateButton = document.getElementById('ai-generate-button');
+    const loadingIndicator = document.getElementById('ai-loading-indicator');
+    if (!token) {
+      if (aiMessageDiv) {
+        aiMessageDiv.innerHTML = '<span class="text-danger">Error: Not logged in.</span>';
+      }
+      return;
+    }
+    try {
+      const response = await sendChatMessage({ prompt: userMessage, conversationId: this.currentConversationId, token });
+      if (!response.ok) throw new Error(await response.text());
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let aiResponseContent = '';
+      const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
+      if (!markdownDiv) throw new Error('Markdown display area not found.');
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        aiResponseContent += chunk;
+        markdownDiv.innerHTML = window.marked ? marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
+        scrollToBottom('ai-result-output', true);
+      }
+      await this.fetchAndUpdateCreditsDisplay();
+      success = true;
+      if (textareaElement && success) {
+        textareaElement.value = '';
+        setTextareaHeight(textareaElement);
+      }
+      scrollToBottom('ai-result-output', true);
+    } catch (error) {
+      if (aiMessageDiv) {
+        const errorDisplayTarget = aiMessageDiv.querySelector('.markdown-content') || aiMessageDiv;
+        errorDisplayTarget.textContent = `Error: ${error.message}`;
+        errorDisplayTarget.classList.add('text-danger');
+      }
+      scrollToBottom('ai-result-output', true);
+    } finally {
+      if (textareaElement) {
+        textareaElement.disabled = false;
+        if (success) setTextareaHeight(textareaElement);
+      }
+      if (generateButton) generateButton.disabled = false;
+      if (loadingIndicator) loadingIndicator.style.display = 'none';
+    }
+  },
+
+  /**
+   * Fetch and update the user's credits display in the UI.
+   */
+  async fetchAndUpdateCreditsDisplay() {
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    if (!token) return;
+    try {
+      const resp = await fetch('/api/v1/user/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const credits = data.credits;
+        const headerEl = document.getElementById('header-user-credits');
+        const dropdownEl = document.getElementById('credits-display');
+        if (headerEl) headerEl.textContent = credits;
+        if (dropdownEl) dropdownEl.textContent = 'Credits: ' + credits;
+      }
+    } catch (e) {
+      console.error('Failed to fetch updated credits:', e);
+    }
+  },
+
+  /**
+   * Initialize the chat (load latest conversation, set flag).
+   */
+  initializeChat() {
+    if (ChatManager.chatInitialized) {
+      console.log('[Chat] InitializeChat called, but already initialized.');
+      return;
+    }
+    console.log('[Chat] Initializing chat...');
+    ChatManager.loadLatestConversation();
+    ChatManager.chatInitialized = true;
+    console.log('[Chat] Chat initialized flag set to true.');
+    setTimeout(() => scrollToBottom('ai-result-output', false), 100);
+  },
+
+  /**
+   * Set up all event listeners for chat UI.
+   */
+  setupEventListeners() {
+    document.addEventListener('DOMContentLoaded', () => {
+      const chatForm = document.getElementById('ai-generation-form');
+      const zoomButton = document.getElementById('chat-zoom-toggle');
+      const promptInput = document.getElementById('ai-prompt-input');
+      if (promptInput) {
+        promptInput.addEventListener('input', () => {
+          setTextareaHeight(promptInput, true);
+        });
+        promptInput.addEventListener('focus', () => setTextareaHeight(promptInput));
+        setTextareaHeight(promptInput);
+        promptInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const generateButton = document.getElementById('ai-generate-button');
+            if (generateButton && !generateButton.disabled) {
+              generateButton.click();
+            }
+            if (document.body.classList.contains('chat-fullscreen')) {
+              scrollToBottom('ai-result-output');
+            }
+          }
+        });
+      }
+      if (zoomButton) {
+        zoomButton.addEventListener('click', () => {
+          const body = document.body;
+          const icon = zoomButton.querySelector('i');
+          body.classList.toggle('chat-fullscreen-active');
+          const isFullscreen = body.classList.contains('chat-fullscreen-active');
+          if (icon) {
+            icon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
+          }
+          setTimeout(() => {
+            if (promptInput) setTextareaHeight(promptInput);
+            scrollToBottom('ai-result-output', false);
+          }, 50);
+        });
+      }
+      if (chatForm) {
+        chatForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const currentPromptInput = document.getElementById('ai-prompt-input');
+          const chatDisplay = document.getElementById('chat-message-list');
+          const currentGenerateButton = document.getElementById('ai-generate-button');
+          const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
+          if (!currentPromptInput || !chatDisplay || !currentGenerateButton || !currentLoadingIndicator) {
+            return;
+          }
+          const userMessage = currentPromptInput.value.trim();
+          if (!userMessage) {
+            return;
+          }
+          currentPromptInput.disabled = true;
+          currentGenerateButton.disabled = true;
+          currentLoadingIndicator.style.display = 'inline-block';
+          removeInitialPrompt(chatDisplay);
+          renderMessage('user', userMessage, chatDisplay);
+          const aiDiv = renderAIPlaceholder(chatDisplay);
+          scrollToBottom('ai-result-output', false);
+          ChatManager.handleAPISubmission(userMessage, aiDiv, currentPromptInput);
+        });
+      }
+    });
+  }
 };
 
 window.ChatManager = ChatManager;

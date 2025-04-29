@@ -1,24 +1,22 @@
 # --- Imports ---
+import asyncio
+import logging
+import os
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Depends, APIRouter, Form, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
-import os
-import logging
-from datetime import datetime, timezone
-import asyncio
-from contextlib import asynccontextmanager
+from fastapi.templating import Jinja2Templates
+from sqlmodel import Session, select, col
 from typing import List, Optional, AsyncGenerator
 
-# Pydantic for request body validation (if needed later)
-# from pydantic import BaseModel
-
 # Database imports
-from database import get_session, engine, create_db_and_tables # Assuming database.py defines engine and get_session
-# Updated Model Imports
-from models import User as User, ChatMessage, Conversation, MessageRole
-from sqlmodel import Session, select, col
+from database import get_session, engine, create_db_and_tables
+
+# Model Imports
+from models import User, ChatMessage, Conversation, MessageRole
 
 # PropelAuth Imports
 from propelauth_fastapi import init_auth, User as PropelUser
@@ -30,7 +28,7 @@ import stripe
 import markdown
 
 # --- Configuration Constants ---
-CREDITS_PER_PURCHASE = 100 # How many credits are granted per successful Stripe purchase
+CREDITS_PER_PURCHASE = 100
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -43,7 +41,7 @@ logger.info(".env file loaded for main app.")
 # --- Configure Stripe ---
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID") # Represents the product for CREDITS_PER_PURCHASE
+STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8000")
 
 stripe_configured = False
@@ -51,8 +49,10 @@ if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
     logger.info("Stripe API Key configured.")
     stripe_configured = True
-    if not STRIPE_WEBHOOK_SECRET: logger.warning("Stripe Webhook Secret not found. Webhook verification will fail.")
-    if not STRIPE_PRICE_ID: logger.warning("Stripe Price ID not found. Cannot create checkout sessions.")
+    if not STRIPE_WEBHOOK_SECRET:
+        logger.warning("Stripe Webhook Secret not found. Webhook verification will fail.")
+    if not STRIPE_PRICE_ID:
+        logger.warning("Stripe Price ID not found. Cannot create checkout sessions.")
 else:
     logger.warning("Stripe Secret Key not found. Payment features disabled.")
 
@@ -82,7 +82,6 @@ from services.ai_service import ai_model, google_ai_configured, SYSTEM_PROMPT
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("FastAPI application starting up...")
-    # Run create_all if NOT using Alembic. Comment out if using Alembic.
     logger.info("Creating database tables if they don't exist...")
     create_db_and_tables()
     logger.info("Startup tasks complete.")
@@ -90,7 +89,7 @@ async def lifespan(app: FastAPI):
     logger.info("FastAPI application shutting down...")
 
 # --- App Setup ---
-app = FastAPI(title="AI RPG Builder", version="0.2.0", lifespan=lifespan) # Increment version
+app = FastAPI(title="AI RPG Builder", version="0.2.0", lifespan=lifespan)
 logger.info("FastAPI app created.")
 
 # --- Static Files and Templates ---
@@ -105,10 +104,10 @@ async def read_root(request: Request, user: Optional[PropelUser] = Depends(optio
     if user:
         db_user_instance = await get_or_create_db_user(user, db)
         if db_user_instance:
-             # Only pass necessary, non-sensitive info
-             db_user_data = { "email": db_user_instance.email, "credits": db_user_instance.credits }
+            db_user_data = {"email": db_user_instance.email, "credits": db_user_instance.credits}
     context = {
-        "request": request, "app_title": app.title,
+        "request": request,
+        "app_title": app.title,
         "propel_user": user.to_dict() if user else None,
         "db_user": db_user_data,
         "propelauth_url": AUTH_URL
@@ -127,12 +126,11 @@ api_router = APIRouter(prefix="/api/v1")
 @api_router.get("/config")
 async def get_app_config():
     logger.info("GET request for '/api/v1/config'")
-    # Provide any frontend-relevant config (e.g., model name if needed)
     return {
         "ai_model_name": ai_model.model_name if ai_model else "N/A",
-        "stripe_configured": stripe_configured and bool(STRIPE_PRICE_ID), # Tell frontend if checkout is possible
+        "stripe_configured": stripe_configured and bool(STRIPE_PRICE_ID),
         "credits_per_purchase": CREDITS_PER_PURCHASE
-     }
+    }
 
 # --- Router Registration ---
 api_router.include_router(conversations_router)

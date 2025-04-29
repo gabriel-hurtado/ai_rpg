@@ -44,30 +44,35 @@ export function updateNavbarUI(isLoggedIn, propelUser, dbUser, authUrl) {
 
     if (userDisplaySpan) {
       userDisplaySpan.textContent = propelUser.email || propelUser.userId || 'User';
-    } else { console.warn(`[UI] Element #${NAVBAR_USER_DISPLAY_ID} not found.`); }
+    } else {
+      console.warn(`[UI] Element #${NAVBAR_USER_DISPLAY_ID} not found.`);
+    }
 
     if (userCreditsSpan) {
       const credits = dbUser?.credits ?? '--';
       userCreditsSpan.textContent = `Credits: ${credits}`;
-    } else { console.warn(`[UI] Element #${NAVBAR_USER_CREDITS_ID} not found.`); }
+    } else {
+      console.warn(`[UI] Element #${NAVBAR_USER_CREDITS_ID} not found.`);
+    }
 
     if (accountLink) {
-        if (authUrl) {
-             accountLink.href = `${authUrl}/account`;
-             accountLink.target = '_blank';
-             accountLink.style.pointerEvents = '';
-             accountLink.style.opacity = '';
-        } else {
-            console.warn(`[UI] authUrl not available to set account link.`);
-            accountLink.href = '#';
-            accountLink.target = '';
-            accountLink.style.pointerEvents = 'none';
-            accountLink.style.opacity = '0.5';
-        }
-    } else { console.warn(`[UI] Element #${NAVBAR_ACCOUNT_LINK_ID} not found.`); }
+      if (authUrl) {
+        accountLink.href = `${authUrl}/account`;
+        accountLink.target = '_blank';
+        accountLink.style.pointerEvents = '';
+        accountLink.style.opacity = '';
+      } else {
+        console.warn(`[UI] authUrl not available to set account link.`);
+        accountLink.href = '#';
+        accountLink.target = '';
+        accountLink.style.pointerEvents = 'none';
+        accountLink.style.opacity = '0.5';
+      }
+    } else {
+      console.warn(`[UI] Element #${NAVBAR_ACCOUNT_LINK_ID} not found.`);
+    }
   }
 }
-
 
 /**
  * Update Tool Access Area: Toggle visibility of prompt vs chat interface.
@@ -97,101 +102,123 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
 
     // --- Attach Listener (ONLY ONCE when button should be active) ---
     if (showPurchaseButton && purchaseButton.dataset.listenerAttached !== 'true') {
-        console.log('[UI] Attaching purchase button click listener');
-        purchaseButton.dataset.listenerAttached = 'true'; // Mark as attached
-        purchaseButton.addEventListener('click', async () => {
-            console.log('[Purchase Button Click] Initiated.');
-            if (purchaseButton.disabled) {
-                 console.log('[Purchase Button Click] Aborted, button is disabled.');
-                 return;
+      console.log('[UI] Attaching purchase button click listener');
+      purchaseButton.dataset.listenerAttached = 'true'; // Mark as attached
+      purchaseButton.addEventListener('click', async () => {
+        console.log('[Purchase Button Click] Initiated.');
+        if (purchaseButton.disabled) {
+          console.log('[Purchase Button Click] Aborted, button is disabled.');
+          return;
+        }
+
+        // Check login state before proceeding
+        if (!window.currentUserInfo || !window.currentUserInfo.isLoggedIn) {
+          console.log('[Purchase Button Click] User not logged in, redirecting to login/signup.');
+          if (window.authClient && typeof window.authClient.redirectToLoginPage === 'function') {
+            window.authClient.redirectToLoginPage();
+          } else {
+            // Fallback: try to click the login link if present
+            const loginLink = document.querySelector('[data-action="login"]');
+            if (loginLink) {
+              loginLink.click();
+            } else {
+              alert('Please login or sign up to purchase credits.');
             }
+          }
+          return;
+        }
 
-            purchaseButton.disabled = true;
-            purchaseButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+        purchaseButton.disabled = true;
+        purchaseButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
 
-            let token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null; // Assumes getCurrentAccessToken is globally available from auth.js
+        let token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null; // Assumes getCurrentAccessToken is globally available from auth.js
 
-             // Attempt refresh if token is missing (optional, assumes authClient is global or accessible)
-             if (!token && window.authClient) {
-                console.warn("[Purchase Click] Token missing, attempting refresh via window.authClient...");
-                try {
-                    const authInfo = await window.authClient.getAuthenticationInfoOrNull(true);
-                     token = authInfo?.accessToken;
-                     if(token) console.log("[Purchase Click] Token refreshed successfully.");
-                     // Note: Doesn't update auth.js state here, only gets token for this action
-                } catch (refreshError) {
-                    console.error("[Purchase Click] Error refreshing token:", refreshError);
-                    token = null;
-                }
+        // Attempt refresh if token is missing (optional, assumes authClient is global or accessible)
+        if (!token && window.authClient) {
+          console.warn("[Purchase Click] Token missing, attempting refresh via window.authClient...");
+          try {
+            const authInfo = await window.authClient.getAuthenticationInfoOrNull(true);
+            token = authInfo?.accessToken;
+            if (token) console.log("[Purchase Click] Token refreshed successfully.");
+            // Note: Doesn't update auth.js state here, only gets token for this action
+          } catch (refreshError) {
+            console.error("[Purchase Click] Error refreshing token:", refreshError);
+            token = null;
+          }
+        }
+
+        if (!token) {
+          console.error("[Purchase Click] Cannot purchase: Token unavailable.");
+          alert("Your session may have expired or is invalid. Please refresh the page or log in again.");
+          purchaseButton.disabled = false; // Re-enable
+          purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Buy credits';
+          // Consider triggering a full UI refresh from auth.js if possible
+          // Or simply reload: window.location.reload();
+          return;
+        }
+
+        // Proceed with fetch
+        try {
+          const response = await fetch('/api/v1/payment/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!response.ok) {
+            let errorMsg = `Error: ${response.status}`;
+            try { errorMsg = (await response.json()).detail || errorMsg; } catch (e) {}
+            console.error("[Purchase Click] Checkout session creation failed:", errorMsg);
+            alert(`Could not initiate payment: ${errorMsg}`);
+          } else {
+            const data = await response.json();
+            if (data.checkout_url) {
+              console.log("[Purchase Click] Redirecting to Stripe:", data.checkout_url);
+              window.location.href = data.checkout_url;
+              return; // Stop processing, navigating away
+            } else {
+              console.error("[Purchase Click] No checkout_url received.");
+              alert("Payment setup error. Please try again later.");
             }
+          }
+        } catch (error) {
+          console.error("[Purchase Click] Network error:", error);
+          alert("A network error occurred. Please check your connection.");
+        }
 
-
-            if (!token) {
-                console.error("[Purchase Click] Cannot purchase: Token unavailable.");
-                alert("Your session may have expired or is invalid. Please refresh the page or log in again.");
-                purchaseButton.disabled = false; // Re-enable
-                purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Buy credits';
-                // Consider triggering a full UI refresh from auth.js if possible
-                // Or simply reload: window.location.reload();
-                return;
-            }
-
-            // Proceed with fetch
-            try {
-                const response = await fetch('/api/v1/payment/create-checkout-session', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) {
-                    let errorMsg = `Error: ${response.status}`;
-                    try { errorMsg = (await response.json()).detail || errorMsg; } catch(e){}
-                    console.error("[Purchase Click] Checkout session creation failed:", errorMsg);
-                    alert(`Could not initiate payment: ${errorMsg}`);
-                } else {
-                    const data = await response.json();
-                    if (data.checkout_url) {
-                        console.log("[Purchase Click] Redirecting to Stripe:", data.checkout_url);
-                        window.location.href = data.checkout_url;
-                        return; // Stop processing, navigating away
-                    } else {
-                        console.error("[Purchase Click] No checkout_url received.");
-                        alert("Payment setup error. Please try again later.");
-                    }
-                }
-            } catch (error) {
-                console.error("[Purchase Click] Network error:", error);
-                alert("A network error occurred. Please check your connection.");
-            }
-
-            // Re-enable button ONLY if not redirected
-            console.log("[Purchase Click] Resetting button state.");
-            purchaseButton.disabled = false;
-            purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Buy credits';
-        });
+        // Re-enable button ONLY if not redirected
+        console.log("[Purchase Click] Resetting button state.");
+        purchaseButton.disabled = false;
+        purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Buy credits';
+      });
     } else if (!showPurchaseButton && purchaseButton.dataset.listenerAttached === 'true') {
-         // Optional: Cleanup logic if needed
-         console.log('[UI] Purchase button hidden, listener could be removed.');
-         // delete purchaseButton.dataset.listenerAttached; // Reset if removing/re-adding
+      // Optional: Cleanup logic if needed
+      console.log('[UI] Purchase button hidden, listener could be removed.');
+      // delete purchaseButton.dataset.listenerAttached; // Reset if removing/re-adding
     }
-  } else { /* Warn if button expected */ }
+  } else {
+    /* Warn if button expected */
+  }
 
   // --- Chat Interface vs. Prompt Visibility ---
   if (chatContainer) {
-     chatContainer.classList.toggle('d-none', !canUseAI);
-  } else { console.warn(`[UI] Chat container #${CHAT_INTERFACE_CONTAINER_ID} not found.`); }
+    chatContainer.classList.toggle('d-none', !canUseAI);
+  } else {
+    console.warn(`[UI] Chat container #${CHAT_INTERFACE_CONTAINER_ID} not found.`);
+  }
 
   if (accessPrompt) {
-      accessPrompt.classList.toggle('d-none', canUseAI);
-      if (!canUseAI) {
-         if (!isLoggedIn) {
-             accessPrompt.innerHTML = `Please <a href="#" data-action="login" class="link-primary">Login or Sign Up</a> to use the AI tools.`;
-         } else {
-             accessPrompt.textContent = 'You need credits to use the AI tools. Please purchase credits.';
-         }
+    accessPrompt.classList.toggle('d-none', canUseAI);
+    if (!canUseAI) {
+      if (!isLoggedIn) {
+        accessPrompt.innerHTML = `Please <a href="#" data-action="login" class="link-primary">Login or Sign Up</a> to use the AI tools.`;
       } else {
-          accessPrompt.textContent = ''; // Clear text when prompt is hidden
+        accessPrompt.textContent = 'You need credits to use the AI tools. Please purchase credits.';
       }
-  } else { console.warn(`[UI] Access prompt #${TOOL_ACCESS_PROMPT_ID} not found.`); }
+    } else {
+      accessPrompt.textContent = ''; // Clear text when prompt is hidden
+    }
+  } else {
+    console.warn(`[UI] Access prompt #${TOOL_ACCESS_PROMPT_ID} not found.`);
+  }
 
   // --- Enable/Disable Chat Inputs ---
   if (aiPromptInput) aiPromptInput.disabled = !canUseAI;
@@ -205,10 +232,10 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
  * @param {number | string} credits - The number of credits to display.
  */
 export function updateCreditsDisplay(credits) {
-    const userCreditsSpan = document.getElementById(NAVBAR_USER_CREDITS_ID);
-    if (userCreditsSpan) {
-        userCreditsSpan.textContent = `Credits: ${credits ?? '--'}`;
-    } else {
-        console.warn(`[UI] Element #${NAVBAR_USER_CREDITS_ID} not found for dynamic update.`);
-    }
+  const userCreditsSpan = document.getElementById(NAVBAR_USER_CREDITS_ID);
+  if (userCreditsSpan) {
+    userCreditsSpan.textContent = `Credits: ${credits ?? '--'}`;
+  } else {
+    console.warn(`[UI] Element #${NAVBAR_USER_CREDITS_ID} not found for dynamic update.`);
+  }
 }

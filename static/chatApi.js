@@ -7,11 +7,15 @@
  * @returns {Promise<object>} A promise resolving to the user's conversations list.
  */
 export async function fetchConversations(token) {
-    const resp = await fetch('/api/v1/conversations', {
-        headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!resp.ok) throw new Error(await resp.text());
-    return resp.json();
+  const response = await fetch('/api/v1/conversations', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return response.json();
 }
 
 /**
@@ -22,11 +26,15 @@ export async function fetchConversations(token) {
  * @returns {Promise<object>} A promise resolving to the conversation data.
  */
 export async function fetchConversationById(conversationId, token) {
-    const resp = await fetch(`/api/v1/conversations/${conversationId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!resp.ok) throw new Error(await resp.text());
-    return resp.json();
+  const response = await fetch(`/api/v1/conversations/${conversationId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return response.json();
 }
 
 /**
@@ -39,12 +47,16 @@ export async function fetchConversationById(conversationId, token) {
  * @returns {Promise<Response>} A promise resolving to the fetch Response.
  */
 export async function sendChatMessage({ prompt, conversationId, token }) {
-    const formData = new FormData();
-    formData.append('prompt', prompt);
-    if (conversationId) formData.append('conversation_id', conversationId);
-    return fetch('/api/v1/chat/message', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-    });
+  const formData = new FormData();
+  formData.append('prompt', prompt);
+
+  if (conversationId) {
+    formData.append('conversation_id', conversationId);
+  }
+
+  return fetch('/api/v1/chat/message', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
 }

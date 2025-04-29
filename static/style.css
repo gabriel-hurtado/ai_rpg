@@ -1,140 +1,160 @@
-/* static/style.css - Modern Dark Theme - Arcane Ember Palette + Readability & Brightness */
+/* static/style.css - Modern Dark Theme - Arcane Ember Palette */
 
-/* 1. CSS Variables ===================================== */
-:root {
+/* ==========================================================================
+   1. CSS Variables (--VAR_NAME)
+   ========================================================================== */
+   :root {
+    /* --- Fonts --- */
     --font-primary: 'Poppins', sans-serif;
     --font-secondary: 'Inter', sans-serif;
-
-    /* --- Backgrounds (ADJUSTED for Brightness) --- */
-    --color-bg-dark: #101014;     /* Deep Charcoal - Keep for contrast sections */
-    --color-bg-medium: #1F1F28;   /* Lighter Charcoal - Main body bg */
-    --color-bg-light: #2E2E3A;    /* Card Background */
-    --color-bg-lighter: #3D3D4B;  /* Hover states or lighter elements */
-    --color-border: rgba(255, 255, 255, 0.12); /* Slightly more visible border */
-
-    /* --- Text (ADJUSTED for Readability) --- */
-    --color-text-primary: #E8E8EE;   /* Brighter soft white */
-    --color-text-secondary: #A8A8C0; /* Brighter muted grey */
-    --color-text-headings: #FFFFFF;  /* Pure white */
-
-    /* --- Accents (Arcane Ember) --- */
-    --color-primary: #D4AF37;     /* Gold / Dark Yellow */
-    --color-primary-rgb: 212, 175, 55; /* RGB for Gold */
-    --color-secondary: #F56565;   /* Deep Orange/Red */
-    --color-warning: #ECC94B;     /* Slightly brighter yellow */
-    --color-danger: #E53E3E;      /* Standard Red */
-    --color-accent-teal: #319795; /* Muted Teal */
-
-    /* --- UI Elements --- */
-    --border-radius-sm: 0.3rem;
-    --border-radius-md: 0.6rem;
-    --border-radius-lg: 1rem;
-    /* Slightly softer shadows */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
-    --shadow-md: 0 5px 15px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.35);
-
-    /* --- Readability Font Weights & Size --- */
+    --base-font-size: 16px;
     --font-weight-light: 300;
     --font-weight-regular: 400;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
-    --base-font-size: 16px; /* Default - adjust if needed */
+
+    /* --- Backgrounds --- */
+    --color-bg-dark: #101014;     /* Deep Charcoal */
+    --color-bg-medium: #1F1F28;   /* Main body bg */
+    --color-bg-light: #2E2E3A;    /* Card / Input Background */
+    --color-bg-lighter: #3D3D4B;  /* Hover states */
+
+    /* --- Text --- */
+    --color-text-primary: #E8E8EE;   /* Main Text */
+    --color-text-secondary: #A8A8C0; /* Muted Text */
+    --color-text-headings: #FFFFFF;  /* Headings */
+
+    /* --- Borders --- */
+    --color-border: rgba(255, 255, 255, 0.12);
+    --border-radius-sm: 0.3rem;
+    --border-radius-md: 0.6rem;
+    --border-radius-lg: 1rem;
+
+    /* --- Accents (Arcane Ember) --- */
+    --color-primary: #D4AF37;         /* Gold / Dark Yellow */
+    --color-primary-rgb: 212, 175, 55; /* RGB for Gold */
+    --color-secondary: #F56565;       /* Deep Orange/Red */
+    --color-warning: #ECC94B;         /* Slightly brighter yellow */
+    --color-danger: #E53E3E;          /* Standard Red */
+    --color-accent-teal: #319795;     /* Muted Teal */
+
+    /* --- UI Elements --- */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 5px 15px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.35);
 }
 
-/* 2. Global Styles ===================================== */
+/* ==========================================================================
+   2. Global Styles & Typography
+   ========================================================================== */
 body.dark-theme {
     font-family: var(--font-secondary);
-    background-color: var(--color-bg-medium); /* Use medium as base */
+    background-color: var(--color-bg-medium);
     color: var(--color-text-primary);
-    padding-top: 75px;
+    padding-top: 75px; /* Adjust if header height changes */
     overflow-x: hidden;
     font-size: var(--base-font-size);
-    font-weight: var(--font-weight-regular); /* Default to regular weight */
-    line-height: 1.75; /* Increased line height */
+    font-weight: var(--font-weight-regular);
+    line-height: 1.75;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+/* Headings */
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
     font-family: var(--font-primary);
-    font-weight: var(--font-weight-semibold); /* Use semibold as default heading weight */
+    font-weight: var(--font-weight-semibold);
     color: var(--color-text-headings);
+    margin-top: 0; /* Reset margin-top */
     margin-bottom: 1rem;
     line-height: 1.3;
 }
 
+/* Display Headings */
 .display-1, .display-2, .display-3, .display-4, .display-5, .display-6 {
-    font-weight: var(--font-weight-bold); /* Keep display headings bold */
+    font-weight: var(--font-weight-bold);
     margin-bottom: 1.5rem;
     line-height: 1.2;
 }
 
+/* Paragraphs */
 p {
     color: var(--color-text-secondary);
-    font-weight: var(--font-weight-regular); /* Regular weight for body */
+    font-weight: var(--font-weight-regular);
     line-height: 1.75;
+    margin-top: 0; /* Reset margin-top */
     margin-bottom: 1.25rem;
-    max-width: 720px; /* Constrain line length */
+    max-width: 720px; /* Constrain line length for readability */
 }
-/* Reset max-width if inside columns or where not desired */
-.container .row p, .card p, .navbar p {
+/* Reset max-width within specific containers */
+.container .row p,
+.card p,
+.navbar p,
+.result-area p { /* Added result area */
     max-width: none;
 }
 
 p.lead {
-    font-weight: var(--font-weight-light); /* Keep lead lighter */
-    color: var(--color-text-primary); /* Make lead slightly brighter */
+    font-weight: var(--font-weight-light);
+    color: var(--color-text-primary);
     font-size: 1.25rem;
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
 }
 
+/* Links */
 a {
-    color: var(--color-primary); /* Gold links */
+    color: var(--color-primary);
     text-decoration: none;
     transition: color 0.2s ease, opacity 0.2s ease;
 }
 a:hover {
-    color: var(--color-secondary); /* Red hover */
+    color: var(--color-secondary);
     opacity: 0.9;
 }
 
+/* Text Utility Colors */
 .text-muted {
     color: var(--color-text-secondary) !important;
-    opacity: 0.85; /* Slightly less opaque */
+    opacity: 0.85;
 }
-
 .text-primary { color: var(--color-primary) !important; }
-.text-secondary { color: var(--color-secondary) !important; }
+.text-secondary { color: var(--color-secondary) !important; } /* Note: this is accent red */
 .text-warning { color: var(--color-warning) !important; }
 .text-danger { color: var(--color-danger) !important; }
+.text-success { color: var(--color-accent-teal) !important; } /* Use teal for success icon */
 
-
-/* 3. Navbar ============================================ */
-.custom-navbar {
-    background-color: rgba(18, 18, 31, 0.9) !important; /* Darker transparent base, more opaque */
+/* ==========================================================================
+   3. Navbar (.site-header / .custom-navbar)
+   ========================================================================== */
+/* Assumes site-header is the primary class on the <header> */
+.site-header {
+    /* background-color: rgba(18, 18, 31, 0.9) !important; */ /* Replaced with variable */
+    background-color: rgba(var(--color-bg-dark), 0.92) !important; /* Slightly more opaque */
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--color-border);
     padding: 0.8rem 0;
     transition: background-color 0.3s ease;
+    /* Ensure fixed positioning if not set by Bootstrap class */
+    /* position: fixed; top: 0; left: 0; width: 100%; z-index: 1030; */
 }
 
 .navbar-brand {
-    color: #fff !important;
+    color: var(--color-text-headings) !important;
     font-size: 1.4rem;
 }
 .navbar-brand i {
-    color: var(--color-primary); /* Gold icon */
+    color: var(--color-primary);
     margin-right: 8px;
-    vertical-align: -2px;
+    vertical-align: -2px; /* Fine-tune icon alignment */
 }
 
 .nav-link {
-    color: rgba(255, 255, 255, 0.8) !important; /* Brighter link text */
+    color: rgba(255, 255, 255, 0.85) !important; /* Slightly brighter */
     font-weight: var(--font-weight-medium);
     font-size: 0.95rem;
     padding: 0.5rem 1rem !important;
@@ -142,26 +162,43 @@ a:hover {
     border-radius: var(--border-radius-sm);
 }
 .nav-link:hover, .nav-link.active {
-    color: #fff !important;
-    background-color: rgba(255, 255, 255, 0.08); /* Slightly more visible hover bg */
+    color: var(--color-text-headings) !important;
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Toggler Styles */
 .custom-toggler-icon {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.8)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
 }
-
 .navbar-toggler {
     border-color: rgba(255, 255, 255, 0.2) !important;
 }
 .navbar-toggler:focus {
-    box-shadow: 0 0 0 0.2rem rgba(var(--color-primary), 0.5);
+    box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb), 0.5); /* Use RGB var */
 }
 
+/* Collapsed Menu Styling */
+@media (max-width: 991.98px) {
+    .navbar-collapse { /* Target the collapse element directly */
+        background-color: var(--color-bg-light);
+        padding: 1rem;
+        margin-top: 0.5rem;
+        border-radius: var(--border-radius-md);
+        border: 1px solid var(--color-border);
+    }
+    .navbar-nav .nav-item { margin-bottom: 0.5rem; }
+    .navbar-nav .nav-item:last-child { margin-bottom: 0; }
+    .navbar-nav .custom-btn { width: 100%; } /* Full width auth button */
+    /* Ensure dropdown aligns correctly */
+    .navbar-nav .dropdown-menu { position: static; float: none; width: auto; margin-top: 0; background-color: transparent; border: 0; box-shadow: none; }
+}
 
-/* 4. Buttons =========================================== */
+/* ==========================================================================
+   4. Buttons (.custom-btn)
+   ========================================================================== */
 .custom-btn {
     padding: 0.75rem 1.5rem;
-    border-radius: 50px;
+    border-radius: 50px; /* Pill shape */
     font-weight: var(--font-weight-semibold);
     font-family: var(--font-primary);
     border: none;
@@ -171,396 +208,348 @@ a:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer; /* Explicitly set */
+    text-align: center; /* Ensure text is centered */
+    vertical-align: middle; /* Better alignment */
+    user-select: none; /* Prevent text selection */
+}
+.custom-btn:disabled {
+    pointer-events: none; /* Prevent clicks */
+    opacity: 0.65; /* Standard Bootstrap disabled opacity */
 }
 
+/* Primary Button (Gold -> Red Gradient) */
 .custom-btn-primary {
-    background: linear-gradient(90deg, var(--color-primary), var(--color-secondary)); /* Gold -> Red */
-    color: #0A0A0C; /* Dark text for contrast */
+    background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+    color: var(--color-bg-dark); /* Dark text for contrast */
 }
-.custom-btn-primary:hover {
-    color: #0A0A0C;
+.custom-btn-primary:hover:not(:disabled) {
+    color: var(--color-bg-dark);
     transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-md); /* Use medium shadow */
     filter: brightness(1.1);
 }
 
-.custom-btn-warning { /* For the hero button */
+/* Warning Button (Hero Button - Yellow) */
+.custom-btn-warning {
     background-color: var(--color-warning);
-    color: var(--color-bg-dark); /* Contrast */
+    color: var(--color-bg-dark);
 }
-.custom-btn-warning:hover {
-     background-color: var(--color-warning);
+.custom-btn-warning:hover:not(:disabled) {
+     background-color: var(--color-warning); /* Keep color */
      color: var(--color-bg-dark);
      transform: translateY(-3px) scale(1.02);
-     box-shadow: 0 8px 15px rgba(var(--color-warning), 0.3);
+     box-shadow: 0 8px 15px rgba(var(--color-primary-rgb), 0.3); /* Use primary glow */
      filter: brightness(1.1);
 }
 
-/* Specific Login Button Style */
-.navbar .custom-btn {
-    padding: 0.4rem 1rem; /* Smaller navbar button */
-    font-size: 0.9rem;
-    background: var(--color-primary); /* Gold */
-    color: var(--color-bg-dark); /* Dark text */
+/* Secondary Button (Used for Send) */
+.custom-btn-secondary {
+    background: var(--color-bg-light);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    box-shadow: none;
+    padding: 0.75rem 1.5rem; /* Ensure padding matches */
+    /* Inherits other styles from .custom-btn */
 }
-.navbar .custom-btn:hover {
-    background: var(--color-warning); /* Brighter yellow hover */
+.custom-btn-secondary:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: var(--color-bg-dark);
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.25);
+}
+.custom-btn-secondary:disabled {
+    background-color: var(--color-bg-medium);
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+
+/* Navbar Specific Button Styles */
+.navbar .custom-btn { /* Targets Login Button */
+    padding: 0.4rem 1rem;
+    font-size: 0.9rem;
+    background: var(--color-primary);
+    color: var(--color-bg-dark);
+}
+.navbar .custom-btn:hover:not(:disabled) {
+    background: var(--color-warning);
     color: var(--color-bg-dark);
     transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm); /* Smaller shadow */
 }
 
-/* Custom Scrollbars ================================== */
-/* For Webkit browsers (Chrome, Safari, Edge, Opera) */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* ==========================================================================
+   5. Scrollbar Styling
+   ========================================================================== */
+/* Webkit */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: var(--border-radius-sm); }
+::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent; }
+/* Textarea specific (can often inherit, but explicit is safe) */
+textarea::-webkit-scrollbar { width: 6px; }
+textarea::-webkit-scrollbar-track { background: transparent; }
+textarea::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: var(--border-radius-sm); }
+textarea::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* ==========================================================================
+   6. Page Sections (#hero, #features, etc.)
+   ========================================================================== */
 
-::-webkit-scrollbar-thumb {
-  background: rgba(var(--color-primary-rgb), 0.3);
-  border-radius: var(--border-radius-sm);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--color-primary-rgb), 0.5);
-}
-
-/* For Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
-}
-
-/* Textarea specific scrollbars */
-textarea::-webkit-scrollbar {
-  width: 6px;
-}
-
-textarea::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-textarea::-webkit-scrollbar-thumb {
-  background: rgba(var(--color-primary-rgb), 0.3);
-  border-radius: var(--border-radius-sm);
-}
-
-textarea::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--color-primary-rgb), 0.5);
-}
-
-/* 5. Hero Section ====================================== */
+/* --- Hero Section --- */
 #hero {
-    background: linear-gradient(180deg, rgba(16, 16, 20, 0.70) 0%, rgba(31, 31, 40, 0.95) 100%), /* Adjusted overlay opacity */
-                url('/static/images/hero-background.jpg');
-    background-size: cover;
-    background-position: center center;
-    background-repeat: no-repeat;
-    /* background-attachment: fixed; /* Consider removing if performance hit */
-    min-height: calc(90vh - 75px);
+    background: linear-gradient(180deg, rgba(16, 16, 20, 0.70) 0%, rgba(31, 31, 40, 0.95) 100%),
+                url('/static/images/hero-background.jpg') center center / cover no-repeat;
+    /* background-attachment: fixed; /* Can cause performance issues */
+    min-height: calc(90vh - 75px); /* Adjust 75px if header height changes */
     position: relative;
-    color: #fff; /* Ensure hero text is white */
+    color: var(--color-text-headings); /* Ensure text is light */
+    display: flex; /* Added for align-items */
+    align-items: center; /* Added for align-items */
+    text-align: center; /* Added for text-align */
+    padding: 3rem 1.5rem; /* Added padding */
+    overflow: hidden; /* Added overflow */
 }
-#hero p.lead {
-    color: rgba(255, 255, 255, 0.9); /* Ensure lead text light */
-}
+#hero .container { position: relative; z-index: 2; }
+#hero p.lead { color: rgba(255, 255, 255, 0.9); }
 
 .highlight-gradient {
-    background: linear-gradient(90deg, var(--color-primary), var(--color-warning)); /* Gold -> Yellow */
+    background: linear-gradient(90deg, var(--color-primary), var(--color-warning));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
 }
 
-/* Optional: Animated Shapes in Hero Background */
-.hero-shapes {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    overflow: hidden;
-    z-index: 1;
-    pointer-events: none;
+.hero-shapes { /* Background shapes if any */
+    position: absolute; inset: 0; /* shorthand for top/left/right/bottom */
+    overflow: hidden; z-index: 1; pointer-events: none;
 }
 
-
-/* 6. Feature Section =================================== */
+/* --- Features Section --- */
 #features {
-    background-color: var(--color-bg-dark); /* Dark section */
-    padding-top: 5rem;
-    padding-bottom: 5rem;
+    background-color: var(--color-bg-dark);
+    padding: 5rem 0; /* Use vertical padding shorthand */
     border-top: 1px solid var(--color-border);
     border-bottom: 1px solid var(--color-border);
 }
-#features h2 { color: var(--color-text-headings); }
+#features h2 { color: var(--color-text-headings); margin-bottom: 3rem; /* More space after heading */ }
 
 .modern-card {
-    background-color: var(--color-bg-light); /* Card background */
+    background-color: var(--color-bg-light);
     border-radius: var(--border-radius-lg);
     border: 1px solid var(--color-border);
     transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
-    height: 100%;
+    height: 100%; /* Ensure cards in a row have same height */
     overflow: hidden;
     position: relative;
+    display: flex; /* Use flexbox for card content */
+    flex-direction: column;
+    text-align: center;
+}
+.modern-card .feature-card { /* Assuming this is the inner content wrapper */
+     padding: 1.5rem; /* Consistent padding */
+     flex-grow: 1; /* Allow content to grow */
 }
 .modern-card:hover {
     transform: translateY(-10px);
     box-shadow: var(--shadow-lg);
-    background-color: var(--color-bg-lighter); /* Lighter on hover */
-    border-color: rgba(var(--color-primary), 0.6); /* Gold border highlight */
+    background-color: var(--color-bg-lighter);
+    border-color: rgba(var(--color-primary-rgb), 0.6);
 }
 
 .feature-icon i {
     font-size: 3rem;
-    background: -webkit-linear-gradient(45deg, var(--color-primary), var(--color-warning)); /* Gold -> Yellow */
+    background: -webkit-linear-gradient(45deg, var(--color-primary), var(--color-warning));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: inline-block;
     line-height: 1;
+    margin-bottom: 1rem; /* Space below icon */
 }
+.feature-card h4 { color: var(--color-text-headings); margin-top: 0.5rem; margin-bottom: 0.75rem; }
+.feature-card p { color: var(--color-text-secondary); font-size: 0.95rem; line-height: 1.65; margin-bottom: 0; /* No extra margin */ }
 
-.feature-card h4 {
-    color: var(--color-text-headings);
-    margin-top: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-.feature-card p {
-    color: var(--color-text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.65;
-}
-
-/* 7. How it Works Section ============================== */
+/* --- How it Works Section --- */
 #how-it-works {
-     background-color: var(--color-bg-medium); /* Medium section (matches body) */
-     padding-top: 5rem;
-     padding-bottom: 5rem;
+     background-color: var(--color-bg-medium);
+     padding: 5rem 0;
 }
-
+#how-it-works h2 { margin-bottom: 3rem; }
 .step-icon {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-warning)); /* Gold -> Yellow */
+    width: 60px; height: 60px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-warning));
     color: var(--color-bg-dark);
     border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-flex; align-items: center; justify-content: center;
     font-size: 1.8rem;
-    box-shadow: 0 5px 15px rgba(var(--color-primary), 0.3);
+    box-shadow: 0 5px 15px rgba(var(--color-primary-rgb), 0.3);
     transition: transform 0.3s ease;
+    margin-bottom: 1rem; /* Space below icon */
 }
-.step-icon:hover {
-    transform: scale(1.1);
-}
-#how-it-works h4 {
-    margin-top: 0.75rem;
-}
+.step-icon:hover { transform: scale(1.1); }
+#how-it-works h4 { margin-top: 0.75rem; font-size: 1.1rem; /* Slightly smaller */ }
+#how-it-works p { font-size: 0.9rem; }
 
-/* 8. Pricing Section =================================== */
+/* --- Pricing Section --- */
 #pricing {
-    background-color: var(--color-bg-dark); /* Dark section */
-    padding-top: 5rem;
-    padding-bottom: 5rem;
-     border-top: 1px solid var(--color-border);
-     border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-bg-dark);
+    padding: 5rem 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
 }
-
 .pricing-card {
-    background-color: var(--color-bg-light); /* Lighter card */
-    border-radius: var(--border-radius-lg) !important;
+    background-color: var(--color-bg-light);
+    border-radius: var(--border-radius-lg) !important; /* Force radius */
     position: relative;
     border: 1px solid var(--color-border);
     transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
     overflow: hidden;
+    text-align: center;
 }
 .pricing-card:hover {
      transform: scale(1.03);
      box-shadow: var(--shadow-lg);
-     background-color: var(--color-bg-lighter); /* Hover to lightest */
-     border-color: var(--color-primary); /* Gold border */
+     background-color: var(--color-bg-lighter);
+     border-color: var(--color-primary);
 }
-
 .pricing-card .card-header {
-    background: none;
-    border-bottom: 1px solid var(--color-border);
-    padding-top: 1.5rem; /* More padding */
-    padding-bottom: 1rem;
+    background: none; border: none; /* Remove border */
+    border-bottom: 1px solid var(--color-border); /* Use variable */
+    padding: 1.5rem 1rem 1rem; /* Adjust padding */
 }
-.pricing-card .card-header h4 {
-    color: var(--color-primary);
-    font-weight: var(--font-weight-bold);
-}
-.pricing-tag {
-    font-size: 2.8rem;
-    font-weight: var(--font-weight-bold);
-    color: var(--color-text-headings);
-    margin-bottom: 1.5rem;
-}
-.pricing-term {
-    font-size: 1rem;
-    font-weight: var(--font-weight-regular);
-    color: var(--color-text-secondary);
-    margin-left: 5px;
-}
-.pricing-card ul li {
-    margin-bottom: 0.75rem;
-    color: var(--color-text-secondary);
-    font-size: 0.95rem;
-}
-.pricing-card ul li i {
-    margin-right: 8px;
-    vertical-align: -1px;
-    color: var(--color-accent-teal); /* Teal checkmarks */
+.pricing-card .card-header h4 { color: var(--color-primary); font-weight: var(--font-weight-bold); margin-bottom: 0; }
+.pricing-card .card-body { padding: 2rem; } /* Consistent padding */
+.pricing-tag { font-size: 2.8rem; font-weight: var(--font-weight-bold); color: var(--color-text-headings); margin-bottom: 1.5rem; }
+.pricing-term { font-size: 1rem; font-weight: var(--font-weight-regular); color: var(--color-text-secondary); margin-left: 5px; }
+.pricing-card ul { margin-top: 1.5rem; margin-bottom: 1.5rem; padding-left: 0; } /* Reset padding */
+.pricing-card ul li { margin-bottom: 0.75rem; color: var(--color-text-secondary); font-size: 0.95rem; }
+.pricing-card ul li i { margin-right: 8px; vertical-align: -1px; color: var(--color-accent-teal); }
+
+.purchase-button { /* Style specifically if needed */
+    width: 100%;
+    margin-top: 1rem; /* Space above button */
 }
 
-.pricing-glow {
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    /* Use primary (gold) glow, slightly stronger */
-    background: radial-gradient(circle, rgba(var(--color-primary), 0.18) 0%, rgba(var(--color-primary), 0) 70%);
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    z-index: -1;
-    pointer-events: none;
+.pricing-glow { /* Background glow effect */
+    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(var(--color-primary-rgb), 0.18) 0%, rgba(var(--color-primary-rgb), 0) 70%);
+    opacity: 0; transition: opacity 0.5s ease;
+    z-index: -1; pointer-events: none;
 }
-.pricing-card:hover .pricing-glow {
-    opacity: 1;
-}
+.pricing-card:hover .pricing-glow { opacity: 1; }
 
-/* 9. Tool Placeholder ================================== */
+/* --- AI Tool Section --- */
 #ai-tool {
-     background-color: var(--color-bg-medium); /* Medium section */
-     padding-top: 5rem;
-     padding-bottom: 5rem;
+     background-color: var(--color-bg-medium);
+     padding: 5rem 0;
 }
+#ai-tool h2 { margin-bottom: 2rem; }
 
-.tool-placeholder {
-    background-color: var(--color-bg-light); /* Lighter card bg */
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-lg); /* Add radius */
+/* Form Styles within AI Tool */
+.ai-tool-form { /* Applies to the <form> itself */
+     max-width: 90%;
+     margin-left: auto;
+     margin-right: auto;
 }
-.tool-placeholder i {
-    color: var(--color-primary) !important;
-}
-
-/* AI Tool Section */
-.ai-tool-form textarea {
-    background-color: var(--color-bg-light) !important; /* Match card background */
+.ai-tool-form textarea { /* Targets #ai-prompt-input */
+    background-color: var(--color-bg-light) !important;
     color: var(--color-text-primary);
     border-color: var(--color-border);
-    min-height: 120px;
+    /* min-height: 120px; /* Removed, let JS handle height */
+    resize: none; /* Already in chat.css, but keep here for context */
+    border-radius: var(--border-radius-md); /* Consistent radius */
 }
 .ai-tool-form textarea:focus {
     background-color: var(--color-bg-lighter) !important;
     color: var(--color-text-primary);
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb), 0.25); /* Adjust color if needed */
+    box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb), 0.25);
 }
 .ai-tool-form textarea::placeholder {
     color: var(--color-text-secondary);
     opacity: 0.7;
 }
 
-/* 10. Footer ============================================ */
-footer {
-    padding-top: 3rem; /* More space above footer */
-    padding-bottom: 3rem;
-    border-top: 1px solid var(--color-border);
-    background-color: var(--color-bg-dark); /* Dark footer */
-}
-footer p {
-    max-width: none; /* Allow footer text full width */
-    margin-bottom: 0; /* Remove extra space */
+/* Send Button Style (Inherits from .custom-btn-secondary) */
+#ai-generate-button { /* Targets the send button */
+   /* Styles defined in .custom-btn-secondary apply */
+   /* Override padding if needed for icon fit */
+   padding: 0.75rem 1rem; /* Slightly less horizontal padding */
 }
 
-/* 11. Responsive Adjustments =========================== */
-@media (max-width: 991.98px) {
-    .navbar-nav {
-        background-color: var(--color-bg-light); /* Match card background */
-        padding: 1rem;
-        margin-top: 0.5rem;
-        border-radius: var(--border-radius-md);
-        border: 1px solid var(--color-border);
-    }
-    .nav-item { margin-bottom: 0.5rem; }
-    .nav-item:last-child { margin-bottom: 0; }
-    /* Make navbar login button full width in collapsed menu */
-    .navbar .custom-btn { width: 100%; }
-}
-
-@media (max-width: 768px) {
-    body { padding-top: 68px; } /* Adjust if navbar height changes */
-    .display-2 { font-size: 2.5rem; }
-    .display-5 { font-size: 1.8rem; }
-    #hero { min-height: calc(75vh - 68px); } /* Slightly shorter hero on mobile */
-    p { max-width: 95%; margin-left: auto; margin-right: auto;} /* Adjust text width */
-    .container .row p { max-width: none; } /* Reset for columns */
-
-}
-
-/* 12. Custom Button Secondary Style */
-.custom-btn-secondary {
-    background: var(--color-bg-light);
-    color: var(--color-primary); /* Gold text */
-    border: 1px solid var(--color-primary); /* Gold border */
-    padding: 0.75rem 1.5rem;
-    border-radius: 50px;
-    font-weight: 600;
-    font-family: var(--font-primary);
-    transition: all 0.3s ease;
-    letter-spacing: 0.5px;
-    box-shadow: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Hover state - Invert colors */
-.custom-btn-secondary:hover {
-    background: var(--color-primary); /* Gold background on hover */
-    color: var(--color-bg-dark); /* Dark text on hover for contrast */
-    border-color: var(--color-primary); /* Keep border color consistent */
-    transform: translateY(-2px); /* Subtle lift */
-    /* Optional: Add a subtle glow matching the primary color */
-    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb, 212, 175, 55), 0.25); /* Add primary color RGB */
-}
-
-/* Disabled state - Muted appearance */
-.custom-btn-secondary:disabled {
-    background-color: var(--color-bg-medium); /* Slightly darker disabled bg */
-    border-color: var(--color-border); /* Use the standard subtle border */
-    color: var(--color-text-secondary); /* Muted text color */
-    opacity: 0.5; /* Reduce opacity */
-    cursor: not-allowed;
-    transform: none; /* No hover effect */
-    box-shadow: none; /* No shadow */
-}
-
-.result-area {
-    background-color: var(--color-bg-dark); /* Darker area for results */
-    border: 1px solid var(--color-border);
-    min-height: 100px;
-}
-.result-area p { /* Style paragraphs within results */
-   max-width: none; /* Allow full width inside result area */
-   margin-bottom: 1rem;
-}
-
-/* Ensure htmx indicator (spinner) is visible */
+/* Loading Indicator */
 #ai-loading-indicator {
-    color: var(--color-primary); /* Gold spinner */
-    display: inline-block; /* Default is inline */
+    color: var(--color-primary);
+    /* display: inline-block; */ /* Set by default, JS toggles block/none */
     vertical-align: middle;
 }
-/* HTMX adds 'htmx-request' class during request */
-.htmx-request #ai-loading-indicator {
-    display: inline-block !important; /* Show it */
+
+/* Chat Result Area */
+.result-area { /* Applies to #ai-result-output */
+    background-color: var(--color-bg-dark);
+    border: 1px solid var(--color-border);
+    min-height: 100px; /* Keep min-height */
+    /* Height, padding, margin-bottom are handled by .chat-container in chat.css */
 }
-.htmx-request.htmx-indicator { /* Default opacity by HTMX */
-   opacity: 1;
+
+
+/* ==========================================================================
+   10. Footer - CSS for Correct HTML Structure (footer > div.container)
+   ========================================================================== */
+
+   footer {
+    /* Styles the OUTER footer tag */
+    background: transparent;         /* Keeps the background see-through */
+    border: none;                    /* Remove any default borders */
+    border-top: 1px solid rgba(255, 255, 255, 0.08); /* ADDS THE SUBTLE FULL-WIDTH LINE */
+    box-shadow: none;
+    padding: 0.5rem 0;               /* Adds a little space above/below the border line */
+                                     /* Vertical padding for the CONTENT is done by py-3 on the inner div */
+    z-index: 10;                     /* Keeps it layered reasonably */
+    /* The mt-5 class on the <footer  tag in HTML handles the margin above the footer */
+}
+
+/* Styles specific to the paragraph INSIDE the footer's container */
+footer .container p {
+    /* --- FIX: REMOVE MAX-WIDTH RESTRICTION --- */
+    max-width: none; /* Add this line! */
+
+    /* Ensure text alignment (though inherited from div.text-center) */
+    text-align: center;
+
+    /* Ensure no bottom margin (already done by mb-0 class) */
+    margin-bottom: 0;
+}
+
+
+/* ==========================================================================
+   11. Responsive Adjustments
+   ========================================================================== */
+/* Tablet and smaller */
+@media (max-width: 991.98px) {
+    /* Styles for collapsed navbar are in Section 3 */
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    body { padding-top: 68px; } /* Adjust based on actual collapsed navbar height */
+    /* Adjust heading sizes */
+    .display-2 { font-size: 2.5rem; }
+    .display-5 { font-size: 1.8rem; }
+    /* Adjust hero height */
+    #hero { min-height: calc(75vh - 68px); }
+    /* Adjust paragraph width */
+    p:not(.container .row p):not(.card p):not(.navbar p):not(.result-area p) { /* Exclude paragraphs already handled */
+        max-width: 95%;
+        margin-left: auto;
+        margin-right: auto;
+    }
 }
