@@ -224,3 +224,35 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
   if (aiPromptInput) aiPromptInput.disabled = !canUseAI;
   if (aiGenerateButton) aiGenerateButton.disabled = !canUseAI;
 }
+
+// --- Add handler for 'Start Creating Now' button ---
+document.addEventListener('DOMContentLoaded', function () {
+  // Find the hero button by text or class
+  const heroButtons = Array.from(document.querySelectorAll('a.btn, button.btn'));
+  const startCreatingBtn = heroButtons.find(
+    btn => btn.textContent && btn.textContent.trim().includes('Start Creating Now')
+  );
+  if (startCreatingBtn) {
+    startCreatingBtn.addEventListener('click', function (e) {
+      // Check login/credit status from global user info
+      if (window.currentUserInfo && window.currentUserInfo.isLoggedIn && window.currentUserInfo.dbUserData && window.currentUserInfo.dbUserData.credits > 0) {
+        // Prevent default anchor scroll
+        e.preventDefault();
+        // Show chat interface if hidden
+        const chatContainer = document.getElementById('chat-interface-container');
+        if (chatContainer && chatContainer.classList.contains('d-none')) {
+          chatContainer.classList.remove('d-none');
+        }
+        // Click the fullscreen button if not already fullscreen
+        const zoomBtn = document.getElementById('chat-zoom-toggle');
+        if (zoomBtn && !document.body.classList.contains('chat-fullscreen-active')) {
+          zoomBtn.click();
+        }
+        // Optionally focus the prompt input
+        const promptInput = document.getElementById('ai-prompt-input');
+        if (promptInput) promptInput.focus();
+      }
+      // Otherwise, let default behavior (scroll to pricing) occur
+    });
+  }
+});

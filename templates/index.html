@@ -104,13 +104,13 @@
         </div>
     </section>
 
-    <!-- AI Tool Section -->
-     <section id="ai-tool" class="py-5 text-center">
-        <div class="container" data-aos="fade-up">
-            <h2 class="mb-4 display-5">The Adventure Forge</h2>
+<!-- AI Tool Section - CORRECTED HTML STRUCTURE -->
+<section id="ai-tool" class="py-5 text-center">
+    <div class="container" data-aos="fade-up">
+        <h2 class="mb-4 display-5">The Adventure Forge</h2>
 
-            {# Tool Access Area Container - Always rendered #}
-            <div id="tool-access-area">
+        {# Tool Access Area Container - Always rendered #}
+        <div id="tool-access-area">
 
                 {# Login/Credit Prompt - Initially visible, JS will hide if needed #}
                 <p class="lead text-muted mb-4" id="tool-access-prompt">
@@ -120,19 +120,26 @@
 
                  {# Chat Area Container - Always rendered, visibility controlled by JS #}
                  <div id="chat-interface-container" class="d-none"> {# Initially hidden by d-none #}
-                     {# --- CHAT HISTORY AREA --- #}
-                     <div id="ai-result-output" class="mb-3 text-start result-area p-3 rounded chat-container">
-                          <div id="chat-message-list">
-                              <p class="text-muted small text-center initial-chat-prompt">Loading chat...</p>
-                          </div>
-                          <div id="chat-error"></div>
-                     </div>
 
-                     <!-- Single zoom button -->
-                     <button id="chat-zoom-toggle" class="chat-zoom-btn" title="Toggle fullscreen mode">
-                         <i class="bi bi-arrows-fullscreen"></i>
-                     </button>
-                     {# --- INPUT FORM AREA (Streaming, JS-based, not HTMX) --- #}
+                     {# --- WRAPPER for Top Section (Sidebar + Chat History) --- #}
+                     <div id="chat-main-area" class="chat-main-area"> {# <<< THIS IS THE ADDED WRAPPER #}
+                         {# --- CHAT FULLSCREEN SIDEBAR --- #}
+                         <div id="chat-fullscreen-sidebar" class="d-none"> {# Keep d-none for JS control initially #}
+                             <div class="conversation-sidebar-header">Conversations</div>
+                             <ul id="conversation-list" class="conversation-list"></ul>
+                         </div>
+                         {# --- CHAT HISTORY AREA --- #}
+                         <div id="ai-result-output" class="mb-3 text-start result-area p-3 rounded chat-container">
+                             <div id="chat-message-list">
+                                 {# Messages go here (Initial prompt might be here) #}
+                                  <p class="text-muted small text-center initial-chat-prompt">Loading chat...</p>
+                             </div>
+                             <div id="chat-error"></div>
+                         </div>
+                     </div>
+                     {# --- END WRAPPER --- #}
+
+                     {# --- INPUT FORM AREA (Sibling to the wrapper) --- #}
                      <form id="ai-generation-form"
                            class="ai-tool-form mx-auto"
                            action="/api/v1/chat/message" method="post"
@@ -148,11 +155,16 @@
                               </div>
                           </div>
                       </form>
-                 </div> {# End chat-interface-container #}
 
-            </div> {# End tool-access-area #}
-        </div> {# End container #}
-    </section>
+                     {# --- Zoom Button (Position relative to tool-access-area) --- #}
+                     <button id="chat-zoom-toggle" class="chat-zoom-btn" title="Toggle fullscreen mode">
+                         <i class="bi bi-arrows-fullscreen"></i>
+                     </button>
+
+                </div> {# End chat-interface-container #}
+        </div> {# End tool-access-area #}
+    </div> {# End container #}
+</section>
 
 {% endblock %}
 

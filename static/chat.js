@@ -161,6 +161,93 @@ const ChatManager = {
   },
 
   /**
+   * Render the sidebar conversation list.
+   */
+  async renderSidebarConversations() {
+    const sidebar = document.getElementById('chat-fullscreen-sidebar');
+    const list = document.getElementById('conversation-list');
+    if (!sidebar || !list) return;
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    if (!token) {
+      list.innerHTML = '<li><span class="text-muted">Not logged in</span></li>';
+      return;
+    }
+    try {
+      const conversations = await fetchConversations(token);
+      list.innerHTML = '';
+      if (!Array.isArray(conversations) || conversations.length === 0) {
+        list.innerHTML = '<li><span class="text-muted">No conversations</span></li>';
+        return;
+      }
+      conversations.forEach(conv => {
+        const li = document.createElement('li');
+        li.textContent = conv.title || 'Untitled';
+        li.title = conv.title;
+        if (conv.id === this.currentConversationId) li.classList.add('active');
+        li.addEventListener('click', async () => {
+          if (conv.id !== this.currentConversationId) {
+            await this.loadAndDisplayConversation(conv.id);
+            await this.renderSidebarConversations();
+          }
+        });
+        list.appendChild(li);
+      });
+    } catch (e) {
+      list.innerHTML = '<li><span class="text-danger">Error loading conversations</span></li>';
+    }
+  },
+
+  /**
+   * Toggle fullscreen UI and sidebar visibility.
+   */
+  toggleFullscreenUI(isFullscreen) {
+    const body = document.body;
+    const sidebar = document.getElementById('chat-fullscreen-sidebar'); // Sidebar element
+
+    if (isFullscreen) {
+      console.log('[FS Toggle] Entering Fullscreen');
+      body.classList.add('chat-fullscreen-active');
+      // Remove d-none class - CSS will handle display based on body class
+      if (sidebar && sidebar.classList.contains('d-none')) {
+          sidebar.classList.remove('d-none');
+      }
+      this.renderSidebarConversations(); // Render sidebar content
+
+       setTimeout(() => {
+            const promptInput = document.getElementById('ai-prompt-input');
+            if (promptInput) setTextareaHeight(promptInput);
+            scrollToBottom('ai-result-output', false);
+          }, 50); // Delay helps with rendering layout changes
+
+    } else {
+      console.log('[FS Toggle] Exiting Fullscreen');
+      body.classList.remove('chat-fullscreen-active');
+      // IMPORTANT: Add d-none back to hide sidebar when NOT fullscreen
+      // This ensures it's hidden correctly if CSS doesn't handle it alone
+      if (sidebar && !sidebar.classList.contains('d-none')) {
+          sidebar.classList.add('d-none');
+      }
+
+       setTimeout(() => {
+           const promptInput = document.getElementById('ai-prompt-input');
+           if (promptInput) setTextareaHeight(promptInput);
+           // scrollToBottom('ai-result-output', false); // Scrolling usually not needed when exiting
+       }, 50);
+    }
+
+    // Update zoom button icon AFTER changing body class
+    const zoomButton = document.getElementById('chat-zoom-toggle');
+    if (zoomButton) {
+        const icon = zoomButton.querySelector('i');
+        if(icon) {
+             icon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
+        }
+    }
+  },
+
+
+
+  /**
    * Set up all event listeners for chat UI.
    */
   setupEventListeners() {
@@ -168,40 +255,46 @@ const ChatManager = {
       const chatForm = document.getElementById('ai-generation-form');
       const zoomButton = document.getElementById('chat-zoom-toggle');
       const promptInput = document.getElementById('ai-prompt-input');
+
+      // --- Prompt Input Listeners ---
       if (promptInput) {
         promptInput.addEventListener('input', () => {
           setTextareaHeight(promptInput, true);
         });
         promptInput.addEventListener('focus', () => setTextareaHeight(promptInput));
-        setTextareaHeight(promptInput);
+        setTextareaHeight(promptInput); // Initial height check
         promptInput.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             const generateButton = document.getElementById('ai-generate-button');
             if (generateButton && !generateButton.disabled) {
-              generateButton.click();
-            }
-            if (document.body.classList.contains('chat-fullscreen')) {
-              scrollToBottom('ai-result-output');
+              // Find the form and submit it programmatically
+              // This is often more reliable than clicking the button
+              const form = promptInput.closest('form');
+              if (form) {
+                  form.requestSubmit(); // Modern way to submit form via JS
+              }
             }
           }
         });
       }
+
+      // --- Zoom Button Listener ---
       if (zoomButton) {
+        // Keep track of fullscreen state *outside* the listener
+        // Initialize based on current body class state (in case of refresh)
+        let currentFullscreenState = document.body.classList.contains('chat-fullscreen-active');
+
         zoomButton.addEventListener('click', () => {
-          const body = document.body;
-          const icon = zoomButton.querySelector('i');
-          body.classList.toggle('chat-fullscreen-active');
-          const isFullscreen = body.classList.contains('chat-fullscreen-active');
-          if (icon) {
-            icon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
-          }
-          setTimeout(() => {
-            if (promptInput) setTextareaHeight(promptInput);
-            scrollToBottom('ai-result-output', false);
-          }, 50);
+          // Toggle the state
+          currentFullscreenState = !currentFullscreenState;
+          console.log('[Zoom Click] Toggling fullscreen. New state:', currentFullscreenState);
+          // Call the UI toggle function with the NEW state
+          ChatManager.toggleFullscreenUI(currentFullscreenState);
         });
       }
+
+      // --- Chat Form Listener ---
       if (chatForm) {
         chatForm.addEventListener('submit', (e) => {
           e.preventDefault();
@@ -210,11 +303,12 @@ const ChatManager = {
           const currentGenerateButton = document.getElementById('ai-generate-button');
           const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
           if (!currentPromptInput || !chatDisplay || !currentGenerateButton || !currentLoadingIndicator) {
+            console.error("Chat form submit: Missing required elements.");
             return;
           }
           const userMessage = currentPromptInput.value.trim();
           if (!userMessage) {
-            return;
+            return; // Don't submit empty messages
           }
           currentPromptInput.disabled = true;
           currentGenerateButton.disabled = true;
@@ -222,10 +316,11 @@ const ChatManager = {
           removeInitialPrompt(chatDisplay);
           renderMessage('user', userMessage, chatDisplay);
           const aiDiv = renderAIPlaceholder(chatDisplay);
-          scrollToBottom('ai-result-output', false);
+          scrollToBottom('ai-result-output', false); // Scroll user msg into view
           ChatManager.handleAPISubmission(userMessage, aiDiv, currentPromptInput);
         });
       }
+       console.log("[Chat Events] All chat event listeners setup completed.");
     });
   }
 };

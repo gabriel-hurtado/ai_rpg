@@ -9,9 +9,36 @@ from services.auth_service import safe_require_user
 from services.db_service import get_or_create_db_user, check_credit_status
 from database import get_session
 
+START_MESSAGE = """Ready to forge your next legend? Let's design an unforgettable TTRPG adventure together!
+Tell me about the story you want to tell. What's the genre (fantasy, sci-fi, horror, mystery?), the mood, or the central theme?
+Do you have a starting spark – a cool location, a compelling villain, a unique monster, or just a general idea?
+Most importantly: Where do you need your AI co-creator the most? Are we brainstorming plot hooks, fleshing out NPCs, designing challenging encounters, mapping dungeons, creating unique items, or something else entirely?"""
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+
+
+def create_playground_conversation(db_user, db):
+    """
+    Helper to create a new playground conversation and welcome message for a user.
+    Returns the new conversation and welcome message.
+    """
+    new_conversation = Conversation(user_id=db_user.id, title="New Adventure")
+    db.add(new_conversation)
+    db.commit()
+    db.refresh(new_conversation)
+
+    welcome_message = ChatMessage(
+        user_id=db_user.id,
+        conversation_id=new_conversation.id,
+        role=MessageRole.ASSISTANT,
+        content=START_MESSAGE,
+    )
+    db.add(welcome_message)
+    db.commit()
+    db.refresh(welcome_message)
+    return new_conversation, welcome_message
 
 
 @router.get("/", response_model=List[dict])
@@ -95,7 +122,8 @@ async def get_conversation_details(
             raise HTTPException(status_code=404, detail="Conversation not found or not accessible")
 
         messages_statement = select(ChatMessage).where(
-            ChatMessage.conversation_id == conversation_id
+            ChatMessage.conversation_id == conversation_id,
+            ChatMessage.is_active == True
         ).order_by(col(ChatMessage.timestamp).asc())
         messages = db.exec(messages_statement).all()
         logger.info(f"Found {len(messages)} messages for conversation {conversation_id}")
@@ -208,6 +236,17 @@ async def delete_conversation(
         db.add(conversation)
         db.commit()
         logger.info(f"Conversation {conversation_id} soft deleted successfully for user {user.user_id}")
+
+        # Check if user has any active conversations left
+        remaining = db.exec(
+            select(Conversation).where(
+                Conversation.user_id == db_user.id,
+                Conversation.is_active == True,
+            )
+        ).all()
+        if not remaining:
+            create_playground_conversation(db_user, db)
+            logger.info(f"Created playground conversation for user {user.user_id} after deleting last conversation.")
         return Response(status_code=204)
     except HTTPException:
         raise
@@ -218,3 +257,99 @@ async def delete_conversation(
         )
         db.rollback()
         raise HTTPException(status_code=500, detail="Database error deleting conversation.")
+
+
+@router.delete("/{conversation_id}/messages/{message_id}", status_code=204)
+async def delete_user_message(
+    conversation_id: int,
+    message_id: int,
+    user=Depends(safe_require_user),
+    db: Session = Depends(get_session)
+):
+    db_user = get_or_create_db_user(user, db)
+    if not db_user:
+        raise HTTPException(status_code=500, detail="User data error.")
+
+    # Fetch the message, ensure it's a user message and belongs to the user
+    message = db.exec(
+        select(ChatMessage).where(
+            ChatMessage.id == message_id,
+            ChatMessage.conversation_id == conversation_id,
+            ChatMessage.role == MessageRole.USER,
+            ChatMessage.is_active == True
+        )
+    ).first()
+    if not message:
+        raise HTTPException(status_code=404, detail="User message not found or not deletable.")
+
+    # Confirm conversation ownership
+    conversation = db.exec(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == db_user.id,
+            Conversation.is_active == True
+        )
+    ).first()
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found or not accessible.")
+
+    # Recursive soft delete (is_active = False) for this message and all descendants
+    def soft_delete_descendants(msg_id):
+        stack = [msg_id]
+        while stack:
+            current_id = stack.pop()
+            msg = db.exec(
+                select(ChatMessage).where(
+                    ChatMessage.id == current_id,
+                    ChatMessage.is_active == True
+                )
+            ).first()
+            if msg:
+                msg.is_active = False
+                db.add(msg)
+                # Find children
+                children = db.exec(
+                    select(ChatMessage.id).where(
+                        ChatMessage.parent_id == current_id,
+                        ChatMessage.is_active == True
+                    )
+                ).all()
+                stack.extend([child.id for child in children])
+    try:
+        soft_delete_descendants(message.id)
+        db.commit()
+        return Response(status_code=204)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting user message {message_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Database error deleting message.")
+
+
+@router.post("/playground_start", response_model=dict, status_code=201)
+async def playground_start(user=Depends(safe_require_user), db: Session = Depends(get_session)):
+    db_user = get_or_create_db_user(user, db)
+    if not db_user:
+        raise HTTPException(status_code=500, detail="User data error.")
+
+    try:
+        # 1. Create conversation
+        new_conversation, welcome_message = create_playground_conversation(db_user, db)
+
+        return {
+            "conversation": {
+                "id": new_conversation.id,
+                "title": new_conversation.title,
+                "created_at": new_conversation.created_at.isoformat(),
+                "updated_at": new_conversation.updated_at.isoformat(),
+            },
+            "initial_message": {
+                "id": welcome_message.id,
+                "role": welcome_message.role,
+                "content": welcome_message.content,
+                "timestamp": welcome_message.timestamp.isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error starting playground chat for user {user.user_id}: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database error starting playground chat.")

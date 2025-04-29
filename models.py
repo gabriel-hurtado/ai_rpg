@@ -69,6 +69,8 @@ class ChatMessage(SQLModel, table=True):
     prompt_tokens: Optional[int] = Field(default=None)
     completion_tokens: Optional[int] = Field(default=None)
     total_tokens: Optional[int] = Field(default=None)
+    parent_id: Optional[int] = Field(default=None, foreign_key="chatmessage.id", index=True)
+    is_active: bool = Field(default=True, index=True)
 
     user: Optional[User] = Relationship(back_populates="chat_messages")
     conversation: Conversation = Relationship(back_populates="messages")

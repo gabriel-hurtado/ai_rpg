@@ -27,6 +27,14 @@ def get_or_create_db_user(propel_user, db: Session) -> User | None:
             db.refresh(db_user)
             logger.info(f"New DB user created with ID: {db_user.id}")
 
+            # Create playground conversation for new users
+            try:
+                from routers.conversations import create_playground_conversation
+                create_playground_conversation(db_user, db)
+                logger.info(f"Created playground conversation for new user {db_user.id}")
+            except Exception as e:
+                logger.error(f"Failed to create playground conversation for new user {db_user.id}: {e}", exc_info=True)
+
         return db_user
 
     except Exception as e:

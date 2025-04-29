@@ -511,21 +511,14 @@ textarea::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-r
     border: none;                    /* Remove any default borders */
     border-top: 1px solid rgba(255, 255, 255, 0.08); /* ADDS THE SUBTLE FULL-WIDTH LINE */
     box-shadow: none;
-    padding: 0.5rem 0;               /* Adds a little space above/below the border line */
-                                     /* Vertical padding for the CONTENT is done by py-3 on the inner div */
+    padding: 0.5rem 0;
     z-index: 10;                     /* Keeps it layered reasonably */
-    /* The mt-5 class on the <footer  tag in HTML handles the margin above the footer */
 }
 
 /* Styles specific to the paragraph INSIDE the footer's container */
 footer .container p {
-    /* --- FIX: REMOVE MAX-WIDTH RESTRICTION --- */
     max-width: none; /* Add this line! */
-
-    /* Ensure text alignment (though inherited from div.text-center) */
     text-align: center;
-
-    /* Ensure no bottom margin (already done by mb-0 class) */
     margin-bottom: 0;
 }
 

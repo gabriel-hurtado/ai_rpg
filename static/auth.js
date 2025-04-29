@@ -43,6 +43,7 @@ function updateUserInfoState(dbData, propelData) {
   currentUserInfo.dbUserData = dbData;
   currentUserInfo.propelUserInfo = propelData;
   currentUserInfo.isLoggedIn = !!propelData;
+  window.currentUserInfo = currentUserInfo; // Ensure global state is always up to date
   console.log('[Auth State] Updated:', currentUserInfo);
   // Note: No UI updates triggered directly from here anymore
 }
