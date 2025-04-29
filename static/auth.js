@@ -1,14 +1,21 @@
-// auth.js - Authentication and UI Toggling (Jinja/SSR Focused)
+// auth.js - Authentication & UI Toggling (Static Elements + JS Toggling/Text Updates)
 
 console.log('[Auth] auth.js loaded.');
 
 // --- Constants for DOM Elements ---
-const AUTH_NAV_LINK_ID = 'auth-nav-link';
+// Navbar Auth States
+const AUTH_NAV_LOGIN_ITEM_ID = 'auth-nav-login-item';
+const AUTH_NAV_USER_ITEM_ID = 'auth-nav-user-item';
+// Dynamic parts within User Dropdown
+const NAVBAR_USER_DISPLAY_ID = 'navbar-user-display';
+const NAVBAR_USER_CREDITS_ID = 'navbar-user-credits';
+const NAVBAR_ACCOUNT_LINK_ID = 'navbar-account-link';
+// Main Content Area
 const PURCHASE_BUTTON_ID = 'purchase-button';
 const AI_PROMPT_INPUT_ID = 'ai-prompt-input';
 const AI_GENERATE_BUTTON_ID = 'ai-generate-button';
-const TOOL_ACCESS_PROMPT_ID = 'tool-access-prompt'; // ID for the prompt paragraph
-const CHAT_INTERFACE_CONTAINER_ID = 'chat-interface-container'; // ID for the chat UI wrapper
+const TOOL_ACCESS_PROMPT_ID = 'tool-access-prompt';
+const CHAT_INTERFACE_CONTAINER_ID = 'chat-interface-container';
 
 // --- Global Auth State ---
 let authClient = null;
@@ -25,7 +32,6 @@ const currentUserInfo = { // Centralized state object
  * @returns {string|null} The current access token or null.
  */
 window.getCurrentAccessToken = function () {
-  // Consider adding future logic here if needed, e.g., proactive refresh check
   return currentAccessToken || null;
 };
 
@@ -74,29 +80,21 @@ async function fetchCombinedUserInfo(forceRefresh = false) {
           dbUserData = await response.json();
           console.log('[Auth Fetch] Backend user data:', dbUserData);
         } else {
-          // Handle backend fetch errors specifically
           console.warn(`[Auth Fetch] Failed to fetch backend user info. Status: ${response.status}`);
-          // If backend token is invalid (401/403), treat as logged out for app features?
           if (response.status === 401 || response.status === 403) {
             console.warn('[Auth Fetch] Backend indicates token is invalid. Treating as logged out.');
-            // Optionally force a logout if the backend rejects the token
-            // authClient.logout(true);
-            updateUserInfoState(null, null); // Clear state even if Propel thinks user is logged in
+            updateUserInfoState(null, null); // Clear state
             currentAccessToken = null;
             return false; // Return false as backend validation failed
           }
-          // For other errors, we might still have Propel info, but backend data is missing
         }
       } catch (e) {
         console.error('[Auth Fetch] Network error fetching backend user info:', e);
-        // Keep Propel info but acknowledge backend data is missing
       }
-      // Update state with potentially partial data (Propel user + null/failed DB data)
-      updateUserInfoState(dbUserData, authInfo.user);
+      updateUserInfoState(dbUserData, authInfo.user); // Update state
       return true; // User is logged in according to PropelAuth
 
     } else {
-      // Not logged in according to PropelAuth
       console.log('[Auth Fetch] No valid auth info found from PropelAuth.');
       updateUserInfoState(null, null);
       currentAccessToken = null;
@@ -115,37 +113,11 @@ async function fetchCombinedUserInfo(forceRefresh = false) {
  * @returns {boolean} True if the user has a positive number of credits.
  */
 function checkCreditValidity() {
-    // --- DETAILED DEBUG LOGGING ---
-    console.log(`[Debug Credits Check] --- Start ---`);
-    const dbDataExists = !!currentUserInfo.dbUserData;
-    console.log(`[Debug Credits Check] currentUserInfo.dbUserData exists: ${dbDataExists}`);
-
-    // Log the raw value from the state object
-    const creditsRaw = currentUserInfo.dbUserData?.credits;
-    console.log(`[Debug Credits Check] Raw credits value from state: ${creditsRaw} (type: ${typeof creditsRaw})`);
-
-    // Perform the checks step-by-step
-    const isNumber = typeof creditsRaw === 'number';
-    console.log(`[Debug Credits Check] Check 1: typeof === 'number'? ${isNumber}`);
-
-    const isNotNaNValue = !isNaN(creditsRaw); // isNaN(null) is false -> !isNaN(null) is true. isNaN(undefined) is true -> !isNaN(undefined) is false.
-    console.log(`[Debug Credits Check] Check 2: !isNaN()? ${isNotNaNValue}`);
-
-    const isPositive = creditsRaw > 0;
-    console.log(`[Debug Credits Check] Check 3: > 0? ${isPositive}`);
-
-    // Final combined result
-    const result = isNumber && isNotNaNValue && isPositive;
-    console.log(`[Debug Credits Check] Final Result: ${result}`);
-    console.log(`[Debug Credits Check] --- End ---`);
-    // --- END DEBUG LOGGING ---
-
-    // Original logic (simplified):
     const credits = currentUserInfo.dbUserData?.credits;
-    return typeof credits === 'number' && !isNaN(credits) && credits > 0;
-
-    // Note: The detailed logging result should match this simplified return line's logic
-    // If they don't match, there's a logic error in the debug logs themselves!
+    // Ensure credits is a number and greater than 0
+    const result = typeof credits === 'number' && !isNaN(credits) && credits > 0;
+    // console.log(`[Debug Credits Check] Value: ${credits}, Result: ${result}`); // Optional debug log
+    return result;
 }
 
 
@@ -160,42 +132,70 @@ async function updateUI() {
 
   // Update UI parts based on fetched state
   updateNavbarUI(isLoggedIn, currentUserInfo.propelUserInfo, currentUserInfo.dbUserData);
-  updateToolAccessUI(isLoggedIn, hasCredit); // Use the new function for visibility toggling
-  handleChatInitialization(isLoggedIn, hasCredit); // Pass hasCredit too
+  updateToolAccessUI(isLoggedIn, hasCredit);
+  handleChatInitialization(isLoggedIn, hasCredit);
 }
 
 /**
- * Update Navbar: Display Login button or User dropdown.
- * (Minimal innerHTML injection is kept here for simplicity)
+ * Update Navbar: Toggle visibility of login button vs user dropdown
+ * and update dynamic text content.
  * @param {boolean} isLoggedIn - Current login status.
  * @param {object|null} propelUser - User info from PropelAuth.
  * @param {object|null} dbUser - User info from backend API.
  */
 function updateNavbarUI(isLoggedIn, propelUser, dbUser) {
-  const authNavLink = document.getElementById(AUTH_NAV_LINK_ID);
-  if (!authNavLink) {
-    console.error(`[Auth UI] Auth nav link container #${AUTH_NAV_LINK_ID} not found!`);
-    return;
+  const loginItem = document.getElementById(AUTH_NAV_LOGIN_ITEM_ID);
+  const userItem = document.getElementById(AUTH_NAV_USER_ITEM_ID);
+
+  // Ensure both elements are found before proceeding
+  if (!loginItem || !userItem) {
+    console.error(`[Auth UI] Navbar auth items not found! Missing #${AUTH_NAV_LOGIN_ITEM_ID} or #${AUTH_NAV_USER_ITEM_ID}. Cannot update navbar.`);
+    return; // Stop this function if elements aren't present
   }
 
-  authNavLink.innerHTML = ''; // Clear previous content
+  // Toggle visibility based on login state
+  loginItem.classList.toggle('d-none', isLoggedIn); // Show login button IF NOT logged in
+  userItem.classList.toggle('d-none', !isLoggedIn); // Show user dropdown IF logged in
 
-  if (isLoggedIn && propelUser) {
-    const credits = dbUser?.credits ?? 0; // Safely access credits, default to 0
-    const userDisplay = propelUser.email || propelUser.userId || 'User'; // Fallback display name
-    // Inject the dropdown HTML
-    authNavLink.innerHTML = `
-      <a class="nav-link dropdown-toggle" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-        <i class="bi bi-person-circle me-1"></i> ${userDisplay} <span class="small ms-2 text-warning">Credits: ${credits}</span>
-      </a>
-      <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="navbarUserDropdown">
-        <li><a class="dropdown-item" href="${authUrl}/account" target="_blank">Account</a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><button class="dropdown-item" data-action="logout">Logout</button></li>
-      </ul>`;
-  } else {
-    // Inject the login button HTML
-    authNavLink.innerHTML = `<a class="nav-link btn btn-sm btn-primary custom-btn" href="#" data-action="login">Login / Sign Up</a>`;
+  // If logged in, update the dynamic content within the user dropdown
+  if (isLoggedIn && !userItem.classList.contains('d-none') && propelUser) {
+    const userDisplaySpan = document.getElementById(NAVBAR_USER_DISPLAY_ID);
+    const userCreditsSpan = document.getElementById(NAVBAR_USER_CREDITS_ID);
+    const accountLink = document.getElementById(NAVBAR_ACCOUNT_LINK_ID);
+
+    // Update User Name/Email
+    if (userDisplaySpan) {
+      userDisplaySpan.textContent = propelUser.email || propelUser.userId || 'User';
+    } else {
+      console.warn(`[Auth UI] Element #${NAVBAR_USER_DISPLAY_ID} not found.`);
+    }
+
+    // Update Credits
+    if (userCreditsSpan) {
+      const credits = dbUser?.credits ?? '--'; // Default to '--' if null/undefined
+      userCreditsSpan.textContent = `Credits: ${credits}`;
+    } else {
+      console.warn(`[Auth UI] Element #${NAVBAR_USER_CREDITS_ID} not found.`);
+    }
+
+    // Update Account Link href (using authUrl from global scope)
+    if (accountLink) {
+        if (authUrl) {
+             accountLink.href = `${authUrl}/account`;
+             // Restore defaults in case they were previously disabled
+             accountLink.target = '_blank';
+             accountLink.style.pointerEvents = '';
+             accountLink.style.opacity = '';
+        } else {
+            console.warn(`[Auth UI] authUrl not available to set account link.`);
+            accountLink.href = '#'; // Fallback href
+            accountLink.target = ''; // Remove target
+            accountLink.style.pointerEvents = 'none'; // Disable click
+            accountLink.style.opacity = '0.5'; // Dim link
+        }
+    } else {
+         console.warn(`[Auth UI] Element #${NAVBAR_ACCOUNT_LINK_ID} not found.`);
+    }
   }
 }
 
@@ -216,34 +216,38 @@ function updateToolAccessUI(isLoggedIn, hasCredit) {
 
   // --- Purchase Button ---
   if (purchaseButton) {
-    // Show if logged in but no credits, hide otherwise
     const showPurchaseButton = isLoggedIn && !hasCredit;
     purchaseButton.classList.toggle('d-none', !showPurchaseButton);
-    purchaseButton.disabled = !showPurchaseButton; // Also disable if hidden
+    purchaseButton.disabled = !showPurchaseButton;
+  } else {
+      // Don't warn if it's intentionally missing
+      // console.warn(`[Auth UI Warn] Purchase button #${PURCHASE_BUTTON_ID} not found.`);
   }
 
   // --- Chat Interface vs. Prompt ---
   if (chatContainer) {
-     // Hide chat container if cannot use AI, show otherwise
      chatContainer.classList.toggle('d-none', !canUseAI);
+  } else {
+      console.warn(`[Auth UI Warn] Chat container #${CHAT_INTERFACE_CONTAINER_ID} not found.`);
   }
-  if (accessPrompt) {
-      // Hide prompt if CAN use AI, show otherwise
-      accessPrompt.classList.toggle('d-none', canUseAI);
 
+  if (accessPrompt) {
+      accessPrompt.classList.toggle('d-none', canUseAI);
       // Update prompt text only if it's supposed to be visible
       if (!canUseAI) {
          if (!isLoggedIn) {
-             // Ensure link has data-action for the listener
              accessPrompt.innerHTML = `Please <a href="#" data-action="login" class="link-primary">Login or Sign Up</a> to use the AI tools.`;
-         } else { // Logged in but no credits
+         } else {
              accessPrompt.textContent = 'You need credits to use the AI tools. Please purchase credits.';
          }
+      } else {
+          accessPrompt.textContent = ''; // Clear text when prompt is hidden
       }
+  } else {
+       console.warn(`[Auth UI Warn] Access prompt #${TOOL_ACCESS_PROMPT_ID} not found.`);
   }
 
   // --- Enable/Disable Chat Inputs ---
-  // Ensure elements exist before trying to set disabled property
   if (aiPromptInput) aiPromptInput.disabled = !canUseAI;
   if (aiGenerateButton) aiGenerateButton.disabled = !canUseAI;
 
@@ -258,31 +262,21 @@ function updateToolAccessUI(isLoggedIn, hasCredit) {
 function handleChatInitialization(isLoggedIn, hasCredit) {
   // Only initialize chat if the user is logged in AND has credits
   if (isLoggedIn && hasCredit) {
-      // Use optional chaining and type check for robustness
       const initializeChatFunction = window.ChatManager?.initializeChat;
       if (typeof initializeChatFunction === 'function') {
           console.log('[Auth] Conditions met, initializing chat.');
           try {
-              // Check if chat.js's internal state thinks it's already initialized
-              // This avoids re-running loadLatestConversation if not needed.
-              // Assumes ChatManager exposes 'chatInitialized' or similar property.
               if (window.ChatManager && !window.ChatManager.chatInitialized) {
-                   initializeChatFunction(); // Call chat.js initialization
+                   initializeChatFunction();
               } else {
                    console.log('[Auth] ChatManager indicates chat already initialized, skipping call.');
               }
-          } catch (error) {
-              console.error('[Auth] Error during ChatManager.initializeChat():', error);
-          }
-      } else {
-          console.warn('[Auth] ChatManager.initializeChat function not found or not ready.');
-      }
+          } catch (error) { console.error('[Auth] Error during ChatManager.initializeChat():', error); }
+      } else { console.warn('[Auth] ChatManager.initializeChat function not found or not ready.'); }
   } else {
        console.log('[Auth] Conditions not met for chat initialization (isLoggedIn:', isLoggedIn, 'hasCredit:', hasCredit, ')');
-       // Optional: Call a teardown function if user logs out or loses credits
        const teardownChatFunction = window.ChatManager?.teardownChat;
        if (typeof teardownChatFunction === 'function') {
-           // Optionally check if chat WAS initialized before tearing down
            if (window.ChatManager && window.ChatManager.chatInitialized) {
                console.log('[Auth] Tearing down chat.');
                try { teardownChatFunction(); } catch (error) { console.error('[Auth] Error tearing down chat:', error); }
@@ -306,7 +300,6 @@ function handleAuthActionClick(e) {
 
   if (!authClient) {
     console.error('[Auth Click] Auth client not ready.');
-    // Optionally provide user feedback, e.g., alert('Authentication service is not available.');
     return;
   }
 
@@ -316,10 +309,8 @@ function handleAuthActionClick(e) {
   } else if (action === 'logout') {
     console.log('[Auth Click] Logging out...');
     currentAccessToken = null; // Clear token immediately
-    updateUserInfoState(null, null); // Clear state immediately
-    // Redirect to logout endpoint (true = redirect after logout)
-    // This will cause a page reload, after which updateUI will run again.
-    authClient.logout(true);
+    updateUserInfoState(null, null); // Clear state immediately (navbar update happens in updateUI after reload)
+    authClient.logout(true); // Redirects, page reload will trigger updateUI
   }
 }
 
@@ -331,7 +322,7 @@ async function initializeAuthentication() {
     console.error('[Auth Init] PropelAuth URL not found (data-auth-url attribute missing?). Auth disabled.');
     // Update UI to reflect disabled state on DOM load
     document.addEventListener('DOMContentLoaded', () => {
-        updateNavbarUI(false, null, null); // Show login button
+        updateNavbarUI(false, null, null); // Show login button state initially
         updateToolAccessUI(false, false); // Show prompt, hide chat
         const accessPrompt = document.getElementById(TOOL_ACCESS_PROMPT_ID);
         if (accessPrompt) accessPrompt.textContent = 'Authentication service unavailable.';
@@ -344,13 +335,11 @@ async function initializeAuthentication() {
     authClient = PropelAuth.createClient({
       authUrl,
       enableBackgroundTokenRefresh: true,
-      // Removed onUserLoggedIn/onUserLoggedOut callbacks for simpler flow
     });
 
     // Setup listeners AFTER the DOM is loaded
     document.addEventListener('DOMContentLoaded', () => {
       // Attach delegated listener for login/logout clicks anywhere on the body
-      // This covers navbar buttons and inline links like in the prompt.
       document.body.addEventListener('click', handleAuthActionClick);
       console.log('[Auth Init] Delegated auth action click listener attached to body.');
 
@@ -365,13 +354,21 @@ async function initializeAuthentication() {
     console.error('[Auth Init] Failed to initialize PropelAuth client:', err);
     // Update UI to reflect error state on DOM load
     document.addEventListener('DOMContentLoaded', () => {
-      updateNavbarUI(false, null, null); // Show login button
+      updateNavbarUI(false, null, null); // Show login button state
       updateToolAccessUI(false, false); // Show prompt, hide chat
       const accessPrompt = document.getElementById(TOOL_ACCESS_PROMPT_ID);
       if (accessPrompt) accessPrompt.textContent = 'Error initializing authentication.';
-      const authNavLink = document.getElementById(AUTH_NAV_LINK_ID);
-      // Display a clearer error in the navbar instead of just the login button
-      if (authNavLink) authNavLink.innerHTML = `<span class="nav-link text-danger small" title="${err.message || 'Unknown auth init error'}">Auth Error</span>`;
+      // Display an error in the navbar login button spot
+      const loginItem = document.getElementById(AUTH_NAV_LOGIN_ITEM_ID);
+      const userItem = document.getElementById(AUTH_NAV_USER_ITEM_ID);
+      if(loginItem) {
+          loginItem.classList.remove('d-none'); // Make sure it's visible
+          // More robust error display
+          loginItem.innerHTML = `<span class="nav-link text-danger small px-2 py-1" title="${err.message || 'Unknown auth init error'}"><i class="bi bi-exclamation-triangle-fill me-1"></i> Auth Error</span>`;
+      }
+      if (userItem) {
+          userItem.classList.add('d-none'); // Hide user dropdown spot
+      }
     });
   }
 }

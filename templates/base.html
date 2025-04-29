@@ -28,15 +28,15 @@
     <script src="/static/js/propelauth.min.js"></script>
 
     <!-- Your Custom CSS -->
-    <link href="/static/style.css" rel="stylesheet">
-    <link href="/static/chat.css" rel="stylesheet">
+    <link href="{{ url_for('static', path='style.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', path='chat.css') }}" rel="stylesheet">
 
     <!-- Marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-    <title>{% block title %}{{ app_title | default('AI RPG Builder') }} - AI TTRPG Forge{% endblock %}</title>
+    <title>{% block title %}{{ app_title | default('AI RPG Builder') }}{% endblock %} - AI TTRPG Forge</title> {# Moved shared suffix out #}
 </head>
-<body class="dark-theme" data-auth-url="{{ propelauth_url | default('', true) }}">
+<body class="dark-theme" data-auth-url="{{ propelauth_url | default('', true) }}"> {# Use url_for for consistency #}
 
     <div class="page-wrapper">
 
@@ -51,10 +51,31 @@
                     <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
                     <li class="nav-item"><a class="nav-link" href="/#how-it-works">How It Works</a></li>
                     <li class="nav-item"><a class="nav-link" href="/#pricing">Pricing</a></li>
-                    {# Auth link/dropdown injected here by auth.js #}
-                    <li class="nav-item ms-lg-2 mt-2 mt-lg-0" id="auth-nav-link">
-                        <a class="nav-link btn btn-sm btn-primary custom-btn" href="#">Login / Sign Up</a>
+
+                    {# --- Auth Nav Section - Render BOTH states, hide initially --- #}
+
+                    {# Logged Out State (Login Button) - Initially Hidden #}
+                    <li class="nav-item ms-lg-2 mt-2 mt-lg-0 d-none" id="auth-nav-login-item">
+                        <a class="nav-link btn btn-sm btn-primary custom-btn" href="#" data-action="login">Login / Sign Up</a>
                     </li>
+
+                    {# Logged In State (User Dropdown) - Initially Hidden #}
+                    <li class="nav-item dropdown ms-lg-2 mt-2 mt-lg-0 d-none" id="auth-nav-user-item">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle me-1"></i>
+                            {# Placeholder for dynamic user display - NEED AN ID #}
+                            <span id="navbar-user-display">User</span>
+                            {# Placeholder for dynamic credits display - NEED AN ID #}
+                            <span class="small ms-2 text-warning" id="navbar-user-credits">Credits: --</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="navbarUserDropdown">
+                            <li><a class="dropdown-item" id="navbar-account-link" href="#" target="_blank">Account</a></li> {# Add ID to update href #}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button class="dropdown-item" data-action="logout">Logout</button></li>
+                        </ul>
+                    </li>
+                    {# --- End Auth Nav Section --- #}
+
                   </ul>
                 </div>
             </div>
@@ -67,7 +88,7 @@
         </main>
 
         <footer class="container text-center mt-5 py-5">
-             <p class="small text-muted opacity-75"> 2024 {{ app_title | default('AI RPG') }}. Forge Your Legend.</p>
+             <p class="small text-muted opacity-75"> 2024 {{ app_title | default('AI RPG') }}. Forge Your Legend.</p> {# Added #}
         </footer>
 
     </div> {# End page-wrapper #}
@@ -86,14 +107,14 @@
       });
     </script>
 
-    <!-- HTMX Script (No integrity check for local dev) -->
+    <!-- HTMX Script (Optional - keep if used elsewhere) -->
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 
     {# PropelAuth library already loaded in <head> #}
 
     <!-- Your Custom Scripts - Load chat logic BEFORE auth logic -->
-    <script type="module" src="/static/chat.js"></script>
-    <script type="module" src="/static/auth.js"></script>
+    <script type="module" src="{{ url_for('static', path='chat.js') }}"></script>
+    <script type="module" src="{{ url_for('static', path='auth.js') }}"></script>
 
     {# Block for page-specific scripts (like index.html's HTMX helper) #}
     {% block scripts %}
