@@ -87,7 +87,7 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
 
   // --- Purchase Button Logic ---
   if (purchaseButton) {
-    const showPurchaseButton = isLoggedIn && !hasCredit;
+    const showPurchaseButton = true;
 
     // --- Visibility Control (Assumes HTML might have d-none initially) ---
     purchaseButton.classList.toggle('d-none', !showPurchaseButton);
@@ -130,7 +130,7 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
                 console.error("[Purchase Click] Cannot purchase: Token unavailable.");
                 alert("Your session may have expired or is invalid. Please refresh the page or log in again.");
                 purchaseButton.disabled = false; // Re-enable
-                purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access';
+                purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Buy credits';
                 // Consider triggering a full UI refresh from auth.js if possible
                 // Or simply reload: window.location.reload();
                 return;
@@ -166,7 +166,7 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
             // Re-enable button ONLY if not redirected
             console.log("[Purchase Click] Resetting button state.");
             purchaseButton.disabled = false;
-            purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Unlock Builder Access';
+            purchaseButton.innerHTML = '<i class="bi bi-wallet-fill me-2"></i> Buy credits';
         });
     } else if (!showPurchaseButton && purchaseButton.dataset.listenerAttached === 'true') {
          // Optional: Cleanup logic if needed
