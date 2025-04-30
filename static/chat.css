@@ -532,3 +532,41 @@ body.chat-fullscreen-active #ai-tool > .container {
 body.chat-fullscreen-active {
     overflow: hidden !important;
 }
+
+/* Add clean, minimalist styles for new/rename/delete conversation and message delete buttons */
+.message-delete-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-secondary); /* Subtle color */
+    /* opacity: 0; */ /* <<< REMOVE OR COMMENT OUT THIS LINE */
+    opacity: 0.7; /* <<< SET A DEFAULT VISIBLE OPACITY (e.g., 0.7) */
+    transition: opacity 0.2s ease-in-out, color 0.2s ease-in-out;
+    cursor: pointer;
+    padding: 0 0.25rem; /* Minimal padding */
+    line-height: 1; /* Align icon better */
+    vertical-align: middle; /* Align with text */
+    font-size: 0.9em; /* Slightly smaller */
+}
+
+/* Optional: You might remove this rule if you set a default opacity above */
+/* .chat-message:hover .message-delete-btn {
+    opacity: 0.7;
+} */
+
+.message-delete-btn:hover {
+    opacity: 1; /* Fully visible on direct hover */
+    color: var(--color-danger); /* Danger color on hover */
+}
+
+/* Ensure visibility in fullscreen regardless of hover */
+/* This rule might become redundant if the default opacity is already 0.7 */
+/* body.chat-fullscreen-active .message-delete-btn {
+    opacity: 0.7 !important;
+} */
+/* Keep the hover effect for fullscreen */
+body.chat-fullscreen-active .message-delete-btn:hover {
+    opacity: 1 !important;
+    color: var(--color-danger) !important;
+}
+
+/* ...(1566 characters truncated)... */

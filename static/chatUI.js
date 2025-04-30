@@ -6,12 +6,15 @@ import { escapeHtml } from './chatUtils.js';
  * @param {'user'|'ai'} sender
  * @param {string} content
  * @param {HTMLElement} chatDisplay
+ * @param {string|null} messageId
+ * @param {function|null} onDelete
+ * @param {number|null} index
  * @returns {void}
  */
-export function renderMessage(sender, content, chatDisplay) {
+export function renderMessage(sender, content, chatDisplay, messageId = null, onDelete = null, index = null) {
   const div = document.createElement('div');
   div.className = `${sender === 'user' ? 'user-message' : 'ai-message'} chat-message`;
-
+  if (messageId) div.dataset.messageId = messageId;
   let renderedContent;
   if (window.marked) {
     if (window.marked.setOptions) {
@@ -21,9 +24,20 @@ export function renderMessage(sender, content, chatDisplay) {
   } else {
     renderedContent = `<p class="m-0">${escapeHtml(content).replace(/\n/g, '<br>')}</p>`;
   }
-
-  div.innerHTML = `<strong class="sender-label">${sender === 'user' ? 'You' : 'AI'}:</strong>${renderedContent}`;
+  // Add delete button for each message
+  let deleteBtnHtml = '';
+  if (typeof onDelete === 'function') {
+    deleteBtnHtml = `<button class="btn btn-link btn-sm p-0 ms-2 message-delete-btn" title="Delete from here"><i class="bi bi-x-circle"></i></button>`;
+  }
+  div.innerHTML = `<strong class="sender-label">${sender === 'user' ? 'You' : 'AI'}:</strong>${renderedContent}${deleteBtnHtml}`;
   chatDisplay.appendChild(div);
+  if (deleteBtnHtml && typeof onDelete === 'function') {
+    const btn = div.querySelector('.message-delete-btn');
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onDelete(index);
+    });
+  }
 }
 
 /**

@@ -6,11 +6,6 @@ from sqlalchemy.sql import func
 from sqlmodel import Column, Field, Relationship, SQLModel, TEXT
 from typing import List, Optional
 
-class ChatMessage(SQLModel):
-    pass
-
-class Conversation(SQLModel):
-    pass
 
 class User(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)

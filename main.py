@@ -1,31 +1,23 @@
 # --- Imports ---
-import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Depends, APIRouter, Form, Response
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi import FastAPI, Request, Depends, APIRouter
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select, col
-from typing import List, Optional, AsyncGenerator
+from sqlmodel import Session
+from typing import Optional
 
 # Database imports
-from database import get_session, engine, create_db_and_tables
-
-# Model Imports
-from models import User, ChatMessage, Conversation, MessageRole
+from database import get_session, create_db_and_tables
 
 # PropelAuth Imports
 from propelauth_fastapi import init_auth, User as PropelUser
 
 # Stripe Import
 import stripe
-
-# Markdown Rendering
-import markdown
 
 # --- Configuration Constants ---
 CREDITS_PER_PURCHASE = 100
@@ -76,7 +68,7 @@ except Exception as e:
     logger.error(f"Failed to initialize PropelAuth: {e}", exc_info=True)
 
 # --- Import AI Service ---
-from services.ai_service import ai_model, google_ai_configured, SYSTEM_PROMPT
+from services.ai_service import ai_model
 
 # --- Lifespan Context Manager ---
 @asynccontextmanager
@@ -119,7 +111,7 @@ from routers.conversations import router as conversations_router
 from routers.user import router as user_router
 from routers.payments import router as payments_router
 from routers.ai import router as ai_router
-from services.db_service import get_or_create_db_user, check_credit_status
+from services.db_service import get_or_create_db_user
 
 api_router = APIRouter(prefix="/api/v1")
 

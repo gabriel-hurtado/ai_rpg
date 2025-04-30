@@ -270,17 +270,16 @@ async def delete_user_message(
     if not db_user:
         raise HTTPException(status_code=500, detail="User data error.")
 
-    # Fetch the message, ensure it's a user message and belongs to the user
+    # Fetch the message, ensure it belongs to the user and conversation
     message = db.exec(
         select(ChatMessage).where(
             ChatMessage.id == message_id,
             ChatMessage.conversation_id == conversation_id,
-            ChatMessage.role == MessageRole.USER,
             ChatMessage.is_active == True
         )
     ).first()
     if not message:
-        raise HTTPException(status_code=404, detail="User message not found or not deletable.")
+        raise HTTPException(status_code=404, detail="Message not found or not deletable.")
 
     # Confirm conversation ownership
     conversation = db.exec(
@@ -293,35 +292,25 @@ async def delete_user_message(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found or not accessible.")
 
-    # Recursive soft delete (is_active = False) for this message and all descendants
-    def soft_delete_descendants(msg_id):
-        stack = [msg_id]
-        while stack:
-            current_id = stack.pop()
-            msg = db.exec(
-                select(ChatMessage).where(
-                    ChatMessage.id == current_id,
-                    ChatMessage.is_active == True
-                )
-            ).first()
-            if msg:
-                msg.is_active = False
-                db.add(msg)
-                # Find children
-                children = db.exec(
-                    select(ChatMessage.id).where(
-                        ChatMessage.parent_id == current_id,
-                        ChatMessage.is_active == True
-                    )
-                ).all()
-                stack.extend([child.id for child in children])
+    # Delete this message and all subsequent messages (by timestamp) in this conversation
     try:
-        soft_delete_descendants(message.id)
+        # Find all messages in this conversation with timestamp >= this message
+        target_time = message.timestamp
+        to_delete = db.exec(
+            select(ChatMessage).where(
+                ChatMessage.conversation_id == conversation_id,
+                ChatMessage.timestamp >= target_time,
+                ChatMessage.is_active == True
+            )
+        ).all()
+        for msg in to_delete:
+            msg.is_active = False
+            db.add(msg)
         db.commit()
         return Response(status_code=204)
     except Exception as e:
         db.rollback()
-        logger.error(f"Error deleting user message {message_id}: {e}", exc_info=True)
+        logger.error(f"Error deleting message {message_id} and subsequent messages: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Database error deleting message.")
 
 

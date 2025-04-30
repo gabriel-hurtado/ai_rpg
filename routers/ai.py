@@ -1,4 +1,8 @@
 import logging
+import json # Add this import
+from datetime import datetime, timezone
+from typing import Optional, List
+
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select, col
@@ -81,8 +85,12 @@ async def chat_message_stream(
         conversation.updated_at = datetime.now(timezone.utc)
         db.add(conversation)
         db.commit()
+        db.refresh(user_message) # Refresh to get the ID
+        db.refresh(conversation) # Refresh conversation too if needed elsewhere
 
-        logger.debug(f"User message saved for conversation {final_conversation_id}")
+        user_message_id = user_message.id # Store the user message ID
+
+        logger.debug(f"User message saved (ID: {user_message_id}) for conversation {final_conversation_id}")
 
         history_statement = select(ChatMessage).where(
             ChatMessage.conversation_id == final_conversation_id
@@ -93,11 +101,13 @@ async def chat_message_stream(
             for msg in history_messages
         ]
 
-        async def stream_and_save():
+        # Pass user_message_id to the generator
+        async def stream_and_save(user_msg_id: int):
             full_response_content = ""
             ai_had_error = False
+            ai_message_id = None # Initialize ai_message_id
             try:
-                ai_stream = call_google_ai_stream(prompt, formatted_history[:-1])
+                ai_stream = call_google_ai_stream(prompt, formatted_history[:-1]) # Pass history *without* the latest user message
 
                 async for chunk in ai_stream:
                     if chunk.startswith("Error:"):
@@ -111,10 +121,13 @@ async def chat_message_stream(
 
                 if ai_had_error or not full_response_content:
                     logger.error(f"AI stream completed with error or empty response for convo {final_conversation_id}. No DB write performed.")
+                    # Optionally yield an error status JSON here if needed by frontend
+                    # yield json.dumps({"error": "AI generation failed"})
                     return
 
                 logger.info(f"AI stream completed successfully for convo {final_conversation_id}. Saving response & decrementing credit.")
 
+                # Use a separate session for post-stream operations
                 with Session(engine) as post_stream_db:
                     try:
                         current_db_user = post_stream_db.get(User, user_id)
@@ -127,11 +140,13 @@ async def chat_message_stream(
                             return
 
                         ai_message = ChatMessage(
-                            user_id=None,
+                            user_id=None, # AI messages don't have a user_id in this schema
                             conversation_id=final_conversation_id,
                             role=MessageRole.ASSISTANT,
                             content=full_response_content,
-                            prompt_tokens=None, completion_tokens=None, total_tokens=None
+                            prompt_tokens=None, # Placeholder, update if you get token counts
+                            completion_tokens=None, # Placeholder
+                            total_tokens=None # Placeholder
                         )
                         post_stream_db.add(ai_message)
 
@@ -145,18 +160,36 @@ async def chat_message_stream(
                             post_stream_db.add(current_conversation)
 
                         post_stream_db.commit()
-                        logger.info(f"AI Response saved (Convo: {final_conversation_id}), User {user_id} credits decremented to {current_db_user.credits}")
+                        post_stream_db.refresh(ai_message) # Refresh to get the AI message ID
+                        ai_message_id = ai_message.id # Store the AI message ID
+
+                        logger.info(f"AI Response saved (ID: {ai_message_id}, Convo: {final_conversation_id}), User {user_id} credits decremented to {current_db_user.credits}")
                         response_headers["X-User-Credits"] = str(current_db_user.credits)
 
                     except Exception as db_exc:
                         logger.error(f"DB Error during post-stream save for convo {final_conversation_id}: {db_exc}", exc_info=True)
                         post_stream_db.rollback()
+                        # Optionally yield an error status JSON here
+                        # yield json.dumps({"error": "Failed to save AI response"})
+                        ai_message_id = None # Ensure ai_message_id is None if save failed
+
+                # Yield the final JSON message if AI message was saved successfully
+                if ai_message_id is not None:
+                    final_data = {"userMessageId": user_msg_id, "aiMessageId": ai_message_id}
+                    yield json.dumps(final_data)
+                    logger.debug(f"Yielded final JSON data for convo {final_conversation_id}: {final_data}")
+                else:
+                     logger.warning(f"Not yielding final JSON data because ai_message_id is None for convo {final_conversation_id}")
+
 
             except Exception as e_stream:
                 logger.error(f"Error during streaming generation for convo {final_conversation_id}: {e_stream}", exc_info=True)
                 yield f"\n\n--- Server Error during response generation ---"
+                # Optionally yield an error status JSON here
+                # yield json.dumps({"error": "Streaming generation failed"})
 
-        response = StreamingResponse(stream_and_save(), media_type="text/plain")
+        # Call the generator with the user_message_id
+        response = StreamingResponse(stream_and_save(user_message_id), media_type="text/plain")
         for k, v in response_headers.items():
             response.headers[k] = v
         return response

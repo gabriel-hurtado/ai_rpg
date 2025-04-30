@@ -91,16 +91,10 @@ async def stripe_webhook_endpoint(request: Request, stripe_signature: Optional[s
                     db_user = db_session.exec(statement).first()
 
                     if db_user:
-                        was_first_purchase = (db_user.credits or 0) <= 0
                         db_user.credits = (db_user.credits or 0) + CREDITS_PER_PURCHASE
                         db_session.add(db_user)
                         db_session.commit()
                         logger.info(f"User {propel_user_id} granted {CREDITS_PER_PURCHASE} credits. New total: {db_user.credits}")
-
-                        if was_first_purchase:
-                            from routers.conversations import create_playground_conversation
-                            create_playground_conversation(db_user, db_session)
-                            logger.info(f"Created playground conversation for user {propel_user_id} after first credit grant.")
                     else:
                         logger.error(f"Webhook Error: User {propel_user_id} not found in DB for successful payment {stripe_session_id}.")
             except Exception as e:
