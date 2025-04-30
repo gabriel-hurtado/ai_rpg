@@ -756,16 +756,15 @@ _performFullscreenToggle() {
           currentGenerateButton.disabled = true;
           currentLoadingIndicator.style.display = 'inline-block';
           removeInitialPrompt(chatDisplay);
-          renderMessage('user', userMessage, chatDisplay);
+          renderMessage('user', userMessage, chatDisplay, null, async (deleteIdx) => {
+            if (confirm('Delete this message and all after?')) {
+              await ChatManager.deleteMessageAndAfter(deleteIdx);
+            }
+          });
           const aiDiv = renderAIPlaceholder(chatDisplay);
           scrollToBottom('ai-result-output', false);
-          // Call the API handling logic using 'this' - arrow function doesn't have its own 'this'
-          // We need to ensure 'this' refers to ChatManager when handleAPISubmission is called
-          // The submit handler itself doesn't need 'this', but handleAPISubmission likely does
-          ChatManager.handleAPISubmission(userMessage, aiDiv, currentPromptInput); // Call statically if 'this' is an issue
-          // OR ensure 'this' context if handleAPISubmission uses internal 'this':
-          // this.handleAPISubmission(userMessage, aiDiv, currentPromptInput); // Requires 'this' to be bound correctly for the submit listener
-        });
+          ChatManager.handleAPISubmission(userMessage, aiDiv, currentPromptInput);
+          });
       } else { console.warn("[Chat Events] Chat form element not found."); }
 
        console.log("[Chat Events] All chat event listeners setup completed.");
