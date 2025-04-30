@@ -160,7 +160,7 @@
                       </form>
 
                      {# --- Zoom Button (Position relative to tool-access-area) --- #}
-                     <button id="chat-zoom-toggle" class="chat-zoom-btn" title="Toggle fullscreen mode">
+                     <button id="chat-zoom-toggle-normal" class="chat-zoom-btn" title="Toggle fullscreen mode">
                          <i class="bi bi-arrows-fullscreen"></i>
                      </button>
 
@@ -168,6 +168,11 @@
         </div> {# End tool-access-area #}
     </div> {# End container #}
 </section>
+
+<!-- Move the zoom button here, as a direct child of body for fullscreen stacking -->
+<button id="chat-zoom-toggle-fullscreen" class="chat-zoom-btn" title="Toggle fullscreen mode">
+    <i class="bi bi-arrows-fullscreen"></i>
+</button>
 
 {% endblock %}
 
