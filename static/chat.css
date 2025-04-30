@@ -1,474 +1,3 @@
-/* static/chat.css
-/* ==========================================================================
-   Base & Dependencies
-   ========================================================================== */
-
-/* Base body padding (adjust if navbar height changes) */
-body {
-    padding-top: 75px; /* Match your actual fixed navbar height */
-}
-
-/* Z-INDEX Variables */
-:root {
-    --z-navbar: 9000;
-    --z-zoom-button: 9500;    /* Ensure button is above most elements */
-    --form-min-height-fs: 80px; /* Min height for form in fullscreen */
-}
-
-/* Ensure Navbar is fixed and has appropriate z-index (Reference from style.css) */
-.navbar.site-header {
-    position: fixed !important; /* Ensure it stays fixed */
-    top: 0; left: 0; width: 100%;
-    z-index: var(--z-navbar) !important; /* Ensure it has correct stacking order */
-    /* Add other critical layout styles if needed, but prefer base styles */
-    background-color: var(--color-bg-dark); /* Example using variable */
-    border-bottom: 1px solid var(--color-border);
-    padding: 0.8rem 0;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-}
-
-/* ==========================================================================
-   Normal View Chat Styles
-   ========================================================================== */
-
-/* Chat History Container Styling */
-.chat-container { /* Applied to #ai-result-output */
-    position: relative;
-    height: 400px; /* Default height */
-    overflow-y: auto; /* Enable scrolling */
-    border-radius: var(--border-radius-lg);
-    background: var(--color-bg-dark);
-    padding: 15px;
-    margin-bottom: 20px; /* Space between history and form */
-    border: 1px solid var(--color-border);
-    scrollbar-width: thin;
-    scrollbar-color: rgba(var(--color-primary-rgb, 212, 175, 55), 0.3) transparent;
-}
-.chat-container::-webkit-scrollbar { width: 6px; height: 6px; }
-.chat-container::-webkit-scrollbar-track { background: transparent; }
-.chat-container::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb, 212, 175, 55), 0.3); border-radius: 3px; }
-.chat-container::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb, 212, 175, 55), 0.5); }
-
-/* List holding the messages */
-#chat-message-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding-bottom: 5px;
-}
-
-/* Individual Chat Message Styling */
-.chat-message {
-    border-radius: 16px;
-    padding: 10px 15px;
-    max-width: 80%;
-    word-wrap: break-word; /* Ensure long words break */
-    margin-bottom: 10px;
-    line-height: 1.6;
-    font-size: var(--base-font-size, 1rem);
-    box-shadow: var(--shadow-sm);
-    opacity: 1 !important; /* Defensive */
-    visibility: visible !important; /* Defensive */
-}
-.chat-message strong.sender-label {
-    font-weight: var(--font-weight-semibold);
-    display: inline;
-    margin-bottom: 0;
-    font-size: 1em; /* Match body font size for coherence */
-    opacity: 0.8;
-}
-.chat-message strong {
-    font-weight: var(--font-weight-semibold);
-    display: block;
-    margin-bottom: 4px;
-    font-size: 1em; /* Match body font size for coherence */
-    opacity: 0.8;
-}
-.chat-message p { /* Reset default p margins within messages */
-    margin-top: 0;
-    margin-bottom: 0;
-    max-width: none; /* Allow full width within bubble */
-}
-.chat-message .markdown-content {
-    margin: 0;
-    padding: 0;
-    font-size: 1em; /* Match chat-message font size */
-}
-.chat-message .markdown-content p { margin-bottom: 0.5rem; }
-.chat-message .markdown-content p:last-child { margin-bottom: 0; }
-.chat-message .markdown-content ul,
-.chat-message .markdown-content ol {
-    padding-left: 20px;
-    margin-bottom: 0.5rem;
-}
-.chat-message .markdown-content pre {
-    background-color: rgba(0,0,0,0.2);
-    padding: 10px;
-    border-radius: var(--border-radius-sm);
-    overflow-x: auto;
-    font-size: 0.9em;
-    border: 1px solid var(--color-border);
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-.chat-message .markdown-content code:not(pre code) { /* Inline code */
-    background-color: rgba(0,0,0,0.2);
-    padding: 0.2em 0.4em;
-    border-radius: 3px;
-    font-size: 0.9em;
-    word-wrap: break-word;
-}
-.markdown-content strong {
-    display: initial;
-    margin-bottom: initial;
-    font-weight: bold;
-    font-size: 1em; /* Match body font size for coherence */
-}
-
-/* User Message Specifics */
-.user-message {
-    background: linear-gradient(135deg, #ffda95, #ffb860);
-    color: #1a1a1a !important;
-    margin-left: auto; /* Align right */
-    border-bottom-right-radius: 4px;
-    font-size: 0.95rem; /* Match AI message font size for consistency */
-}
-.user-message strong, .user-message p, .user-message .markdown-content * { color: inherit !important; }
-
-/* AI Message Specifics */
-.ai-message {
-    background: var(--color-bg-light);
-    color: var(--color-text-primary) !important;
-    margin-right: auto; /* Align left */
-    border-bottom-left-radius: 4px;
-}
-.ai-message strong, .ai-message .markdown-content * { color: inherit !important; }
-.ai-message {
-    font-size: 0.95rem;
-}
-
-
-/* Chat Input Form (Normal View) */
-#ai-generation-form {
-    display: flex;
-    justify-content: center; /* Center inner div */
-}
-#ai-generation-form > div { /* The inner d-flex div */
-    width: 90%; /* Or your desired normal width */
-    max-width: 900px; /* Example max width */
-    display: flex;
-    align-items: flex-end; /* Align button to bottom of textarea */
-    gap: 10px;
-}
-#ai-generation-form #ai-prompt-input {
-    flex-grow: 1; /* Take available space */
-}
-#ai-generation-form #ai-generate-button {
-    flex-shrink: 0; /* Don't shrink */
-}
-
-/* Textarea Styling (Normal View) */
-#ai-prompt-input {
-    resize: none; /* Disable manual resize handle always */
-    overflow-y: auto; /* Allow internal scroll */
-    min-height: 46px; /* Base height matching button */
-    /* Inherit scrollbar styles */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(var(--color-primary-rgb, 212, 175, 55), 0.3) transparent;
-}
-#ai-prompt-input::-webkit-scrollbar { width: 6px; }
-#ai-prompt-input::-webkit-scrollbar-track { background: transparent; }
-#ai-prompt-input::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb, 212, 175, 55), 0.3); border-radius: 3px; }
-#ai-prompt-input::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb, 212, 175, 55), 0.5); }
-
-
-/* ==========================================================================
-   Fullscreen Mode Styles - STYLED - Absolute Positioning V5.1
-   (Using Arcane Ember Theme - Full Width Prompt)
-   ========================================================================== */
-
-/* --- Basic Setup & Hiding Non-Chat Elements (REVISED) --- */
-body.chat-fullscreen-active {
-    overflow: hidden !important; /* Prevent body scroll */
-}
-
-/* Hide elements inside page-wrapper EXCEPT header, main, and the fullscreen button */
-/* This assumes button is a direct child of page-wrapper and outside main */
-body.chat-fullscreen-active .page-wrapper > *:not(header):not(main):not(#chat-zoom-toggle-fullscreen) {
-    display: none !important;
-}
-
-/* Hide elements inside main EXCEPT the #ai-tool section */
-/* This rule is generally safe if button is outside main */
-body.chat-fullscreen-active main > *:not(#ai-tool) {
-    display: none !important;
-}
-
-/* --- Hide Specific Navbar Links in Fullscreen --- */
-body.chat-fullscreen-active .navbar-nav .nav-link[href="/#features"],
-body.chat-fullscreen-active .navbar-nav .nav-link[href="/#how-it-works"],
-body.chat-fullscreen-active .navbar-nav .nav-link[href="/#pricing"] {
-    display: none !important;
-}
-
-
-/* --- Section takes over viewport --- */
-body.chat-fullscreen-active #ai-tool {
-    position: fixed !important;
-    top: 75px !important; /* Account for fixed navbar height */
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    display: flex !important;
-    background-color: var(--color-bg-dark); /* Use dark background */
-}
-body.chat-fullscreen-active #ai-tool h2,
-body.chat-fullscreen-active #ai-tool #tool-access-prompt {
-    display: none !important;
-}
-
-/* --- Tool Access Area Takes Full Space --- */
-body.chat-fullscreen-active #tool-access-area {
-    width: 100% !important;
-    height: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    position: relative; /* Context for zoom button AND chat interface */
-}
-
-/* --- Chat Interface Container (Stacks Main Area + Form) --- */
-body.chat-fullscreen-active #chat-interface-container {
-    display: flex !important;
-    flex-direction: column !important; /* Vertical stack */
-    flex-grow: 1 !important;           /* Takes available vertical space */
-    height: 100%;
-    width: 100%;
-    min-height: 0;                     /* Allow shrinking */
-    overflow: hidden !important;
-    position: relative;
-}
-
-/* --- Main Chat Area (Acts as positioning context) --- */
-body.chat-fullscreen-active #chat-main-area {
-    flex-grow: 1 !important;        /* Takes available vertical space */
-    height: 100%;                   /* Fill height */
-    min-height: 0;                  /* Allow shrinking */
-    width: 100%;
-    overflow: hidden !important;
-    position: relative !important; /* Context for absolute sidebar */
-}
-
-/* --- Sidebar (Absolute Positioning - Styled) --- */
-body.chat-fullscreen-active #chat-main-area > #chat-fullscreen-sidebar {
-    display: none; /* JS controls visibility via :not(.d-none) */
-    /* --- Positioning --- */
-    position: absolute;
-    top: 0;
-    left: 0;
-    /* --- Sizing --- */
-    width: 250px;       /* Fixed Width - adjust as needed */
-    height: 100%;       /* Full height of parent */
-    /* --- Internal Layout & Appearance --- */
-    display: flex;       /* Use flex for internal stacking */
-    flex-direction: column;
-    background-color: var(--color-bg-dark); /* Match main chat bg */
-    border-right: 1px solid var(--color-border); /* Subtle separator */
-    overflow-y: auto;   /* Allow internal scrolling */
-    overflow-x: hidden;
-    z-index: 10;        /* Above chat history */
-    transition: box-shadow 0.2s;
-    box-shadow: 3px 0px 15px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-}
-/* Show when active and not d-none */
-body.chat-fullscreen-active #chat-main-area > #chat-fullscreen-sidebar:not(.d-none) {
-    display: flex; /* Show as flex container */
-}
-
-/* --- Chat History (Padded Left - Styled) --- */
-body.chat-fullscreen-active #chat-main-area > #ai-result-output.chat-container {
-    height: 100%;
-    width: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
-    /* --- Padding to avoid absolute sidebar --- */
-    padding-left: calc(250px + 2rem) !important; /* Sidebar width (250px) + Gap */
-    padding-right: 2.5rem !important;            /* INCREASED right padding */
-    padding-top: 1.5rem !important;
-    padding-bottom: 1.5rem !important;
-    box-sizing: border-box;
-    /* --- Basic Styles & Reset --- */
-    display: block;
-    position: relative;
-    max-width: none;
-    border: none;
-    border-radius: 0;
-    margin: 0;
-    background-color: var(--color-bg-dark); /* Dark background for chat */
-    z-index: 1;                      /* Below sidebar */
-    /* Scrollbar */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
-}
-body.chat-fullscreen-active #chat-main-area > #ai-result-output.chat-container::-webkit-scrollbar { width: 6px; height: 6px; }
-body.chat-fullscreen-active #chat-main-area > #ai-result-output.chat-container::-webkit-scrollbar-track { background: transparent; }
-body.chat-fullscreen-active #chat-main-area > #ai-result-output.chat-container::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: var(--border-radius-sm); }
-body.chat-fullscreen-active #chat-main-area > #ai-result-output.chat-container::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
-
-/* --- Chat Message Max Width (Fullscreen) --- */
-body.chat-fullscreen-active .chat-message {
-    max-width: 88%; /* INCREASED max-width for messages */
-}
-body.chat-fullscreen-active .ai-message {
-    font-size: 0.92rem; /* Slightly smaller in fullscreen */
-}
-
-/* Ensure chat message list fills width inside padded container */
-body.chat-fullscreen-active #chat-message-list {
-    width: 100%;
-    padding-bottom: 10px; /* Space at bottom */
-}
-
-/* --- Input Form (Styled - Full Width Inner) - REVISED V2 --- */
-/* Use a more specific selector to override style.css and inline styles */
-body.chat-fullscreen-active #chat-interface-container > #ai-generation-form#ai-generation-form.ai-tool-form {
-    display: flex !important;
-    flex-shrink: 0 !important;
-    min-height: var(--form-min-height-fs, 80px) !important;
-    width: 100% !important;         /* FORCE full width */
-    max-width: none !important;     /* FORCE override max-width */
-    margin-left: 0 !important;      /* FORCE override margin */
-    margin-right: 0 !important;     /* FORCE override margin */
-    padding: 1rem 2rem !important;  /* Apply padding for content */
-    box-sizing: border-box !important;
-    background-color: var(--color-bg-dark) !important;
-    border-top: 1px solid var(--color-border) !important;
-    box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.2) !important;
-    z-index: 5 !important;
-    align-items: center !important;
-    justify-content: normal !important; /* Reset justify-content from debug */
-}
-
-/* Inner div for form content - Keep Simplified */
-body.chat-fullscreen-active #chat-interface-container > #ai-generation-form > div {
-    width: 100%; /* Takes 100% of the padded form area */
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
-    /* Ensure no accidental margins here */
-    margin: 0 !important;
-    padding: 0 !important;
-    max-width: none !important;
-}
-
-
-/* Textarea Styling (Fullscreen - Styled) */
-body.chat-fullscreen-active textarea#ai-prompt-input {
-    flex-grow: 1;
-    min-height: 48px; /* Match button height */
-    max-height: 250px; /* Limit growth */
-    resize: none;
-    overflow-y: auto;
-    background: var(--color-bg-light) !important; /* Use theme variable */
-    color: var(--color-text-primary) !important;
-    border: 1px solid var(--color-border) !important;
-    border-radius: 24px !important; /* Pill shape to match button */
-    padding: 12px 20px !important; /* Good padding */
-    line-height: 1.5 !important;
-    font-size: var(--base-font-size, 1rem) !important;
-    box-shadow: none !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    /* Scrollbar */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
-}
-body.chat-fullscreen-active textarea#ai-prompt-input::-webkit-scrollbar { width: 6px; }
-body.chat-fullscreen-active textarea#ai-prompt-input::-webkit-scrollbar-track { background: transparent; }
-body.chat-fullscreen-active textarea#ai-prompt-input::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 3px; }
-body.chat-fullscreen-active textarea#ai-prompt-input::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
-/* Focus state for textarea */
-body.chat-fullscreen-active textarea#ai-prompt-input:focus {
-    border-color: var(--color-primary) !important;
-    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2);
-    outline: none;
-}
-/* Send Button Styling (Fullscreen - Styled) */
-body.chat-fullscreen-active #ai-generate-button {
-     background: var(--color-primary);
-     color: var(--color-bg-dark);
-     border: none; /* Remove border, rely on background */
-     border-radius: 50%; /* Circle */
-     width: 48px; height: 48px; /* Match textarea height */
-     min-width: 48px; /* Prevent shrinking */
-     padding: 0;
-     display: flex; align-items: center; justify-content: center;
-     box-shadow: var(--shadow-sm);
-     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-     flex-shrink: 0;
-     cursor: pointer;
-}
-body.chat-fullscreen-active #ai-generate-button:hover:not(:disabled) {
-     background: var(--color-warning); /* Use warning color on hover */
-     color: var(--color-bg-dark);
-     transform: scale(1.05);
-     box-shadow: var(--shadow-md);
-}
-body.chat-fullscreen-active #ai-generate-button i { font-size: 1.25rem; /* Adjust icon size */ }
-/* Disabled state */
-body.chat-fullscreen-active #ai-generate-button:disabled {
-    background-color: var(--color-bg-light); /* Lighter background when disabled */
-    color: var(--color-text-secondary);
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* --- Sidebar Content Styling (Styled) --- */
-#chat-fullscreen-sidebar .conversation-sidebar-header {
-    color: var(--color-text-headings);
-    font-family: var(--font-primary);
-    font-size: 1.1rem;
-    font-weight: var(--font-weight-semibold);
-    padding: 1rem 1.25rem; /* Standard padding */
-    background: transparent; /* Inherit from sidebar */
-    border-bottom: 1px solid var(--color-border);
-    letter-spacing: 0.02em;
-    flex-shrink: 0; /* Prevent header shrinking */
-}
-.conversation-list {
-    list-style: none;
-    margin: 0;
-    padding: 0.5rem 0; /* Padding top/bottom for the list */
-    overflow-y: auto;
-    flex-grow: 1; /* Takes remaining space */
-    min-height: 0; /* Allow scroll within flex item */
-}
-.conversation-list li {
-    color: var(--color-text-secondary); /* Use secondary text color */
-    padding: 0.75rem 1.25rem; /* Vertical/horizontal padding */
-    border-left: 3px solid transparent; /* For active state */
-    cursor: pointer;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    font-size: 0.95rem; /* Slightly smaller font */
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-.conversation-list li:hover {
-    background-color: var(--color-bg-light); /* Use light background on hover */
-    color: var(--color-text-primary);
-}
-.conversation-list li.active {
-    background-color: var(--color-bg-light); /* Same background as hover */
-    border-left-color: var(--color-primary); /* Use primary color for active border */
-    color: var(--color-text-primary); /* Use primary text color */
-    font-weight: var(--font-weight-medium); /* Medium weight for active */
-}
 /* static/chat.css */
 /* ==========================================================================
    Base & Dependencies
@@ -478,25 +7,29 @@ body.chat-fullscreen-active #ai-generate-button:disabled {
 body {
     padding-top: 75px; /* Match your actual fixed navbar height */
     /* Define CSS variables used throughout this file if not defined globally */
-    --color-bg-dark: #212529; /* Example */
-    --color-border: #495057; /* Example */
-    --color-bg-light: #343a40; /* Example */
-    --color-text-primary: #f8f9fa; /* Example */
-    --color-text-secondary: #adb5bd; /* Example */
-    --color-text-headings: #ffffff; /* Example */
-    --color-primary: #d4af37; /* Example */
-    --color-primary-rgb: 212, 175, 55; /* Example */
-    --color-warning: #ffc107; /* Example */
-    --color-danger: #dc3545; /* Example */
-    --color-bg-lighter: #f8f9fa; /* Example - used for zoom btn bg */
-    --border-radius-sm: 0.25rem; /* Example */
-    --border-radius-lg: 0.5rem; /* Example */
-    --shadow-sm: 0 .125rem .25rem rgba(0,0,0,.075); /* Example */
-    --shadow-md: 0 .5rem 1rem rgba(0,0,0,.15); /* Example */
-    --base-font-size: 1rem; /* Example */
-    --font-primary: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; /* Example */
-    --font-weight-semibold: 600; /* Example */
-    --font-weight-medium: 500; /* Example */
+    --color-bg-dark: #101014; /* Updated from user CSS */
+    --color-border: rgba(255, 255, 255, 0.12); /* Updated from user CSS */
+    --color-bg-light: #2E2E3A; /* Updated from user CSS */
+    --color-text-primary: #E8E8EE; /* Updated from user CSS */
+    --color-text-secondary: #A8A8C0; /* Updated from user CSS */
+    --color-text-headings: #FFFFFF; /* Updated from user CSS */
+    --color-primary: #D4AF37; /* Updated from user CSS */
+    --color-primary-rgb: 212, 175, 55; /* Updated from user CSS */
+    --color-warning: #ECC94B; /* Updated from user CSS */
+    --color-danger: #E53E3E; /* Updated from user CSS */
+    --color-bg-lighter: #3D3D4B; /* Updated from user CSS */
+    --border-radius-sm: 0.3rem; /* Updated from user CSS */
+    --border-radius-lg: 1rem; /* Updated from user CSS */
+    --shadow-sm: 0 .125rem .25rem rgba(0,0,0,.075); /* Keep example or use theme */
+    --shadow-md: 0 .5rem 1rem rgba(0,0,0,.15); /* Keep example or use theme */
+    --base-font-size: 16px; /* Updated from user CSS */
+    --font-primary: 'Poppins', sans-serif; /* Updated from user CSS */
+    --font-secondary: 'Inter', sans-serif; /* Updated from user CSS */
+    --font-weight-light: 300; /* Updated from user CSS */
+    --font-weight-regular: 400; /* Updated from user CSS */
+    --font-weight-medium: 500; /* Updated from user CSS */
+    --font-weight-semibold: 600; /* Updated from user CSS */
+    --font-weight-bold: 700; /* Updated from user CSS */
 }
 
 /* Z-INDEX Variables */
@@ -626,17 +159,21 @@ body {
 
 /* User Message Specifics */
 .user-message {
-    background: linear-gradient(135deg, #ffda95, #ffb860); /* Example gradient */
-    color: #1a1a1a !important; /* Dark text on light background */
+    background: linear-gradient(135deg, #ffda95, #ffb860); /* Light gradient background */
+    color: #1F1F28 !important; /* <<< CHANGE: Explicitly set a DARK color for text */
+                               /* Using a dark gray/off-black from your theme might be good */
     margin-left: auto; /* Align right */
     border-bottom-right-radius: 4px;
     font-size: 0.95rem;
 }
 /* Ensure nested elements inherit color */
-.user-message, .user-message *, .user-message strong, .user-message p, .user-message code {
-    color: inherit !important;
+.user-message p,
+.user-message strong,
+.user-message code,
+.user-message pre,
+.user-message li {
+    color: #1F1F28 !important;
 }
-
 
 /* AI Message Specifics */
 .ai-message {
@@ -676,7 +213,6 @@ body {
     resize: none; /* Disable manual resize handle always */
     overflow-y: auto; /* Allow internal scroll */
     min-height: 46px; /* Base height matching button */
-    /* Inherit scrollbar styles */
     scrollbar-width: thin;
     scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
 }
@@ -690,11 +226,15 @@ body {
    Fullscreen Mode Styles
    ========================================================================== */
 
-/* --- Basic Setup & Hiding Non-Chat Elements --- */
+/* --- Basic Setup & Hiding Non-Chat Elements (REVISED) --- */
 body.chat-fullscreen-active {
     overflow: hidden !important; /* Prevent body scroll */
 }
-body.chat-fullscreen-active .page-wrapper > *:not(header):not(main),
+/* Hide elements inside page-wrapper EXCEPT header, main, and the fullscreen button */
+body.chat-fullscreen-active .page-wrapper > *:not(header):not(main):not(#chat-zoom-toggle-fullscreen) {
+    display: none !important;
+}
+/* Hide elements inside main EXCEPT the #ai-tool section */
 body.chat-fullscreen-active main > *:not(#ai-tool) {
     display: none !important;
 }
@@ -706,47 +246,29 @@ body.chat-fullscreen-active .navbar-nav .nav-link[href="/#pricing"] {
     display: none !important;
 }
 
-
 /* --- Section takes over viewport --- */
 body.chat-fullscreen-active #ai-tool {
-    position: fixed !important;
-    top: 75px !important; /* Account for fixed navbar height */
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    display: flex !important;
-    background-color: var(--color-bg-dark); /* Use dark background */
+    position: fixed !important; top: 75px !important; /* Match navbar height */
+    left: 0 !important; right: 0 !important; bottom: 0 !important;
+    margin: 0 !important; padding: 0 !important; overflow: hidden !important;
+    display: flex !important; background-color: var(--color-bg-dark);
 }
 body.chat-fullscreen-active #ai-tool h2,
 body.chat-fullscreen-active #ai-tool #tool-access-prompt {
-    display: none !important; /* Hide section title and normal access prompt */
+    display: none !important;
 }
 
 /* --- Tool Access Area Takes Full Space --- */
 body.chat-fullscreen-active #tool-access-area {
-    width: 100% !important;
-    height: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    position: relative !important; /* Needed for absolute positioning inside */
+    width: 100% !important; height: 100% !important; padding: 0 !important; margin: 0 !important;
+    display: flex !important; flex-direction: column !important;
+    overflow: hidden !important; position: relative !important;
 }
 
 /* --- Chat Interface Container (Stacks Main Area + Form) --- */
 body.chat-fullscreen-active #chat-interface-container {
-    display: flex !important;
-    flex-direction: column !important; /* Vertical stack */
-    flex-grow: 1 !important;           /* Takes available vertical space */
-    height: 100%;
-    width: 100%;
-    min-height: 0;                     /* Allow shrinking */
-    overflow: hidden !important;
-    position: relative;
+    display: flex !important; flex-direction: column !important; flex-grow: 1 !important;
+    height: 100%; width: 100%; min-height: 0; overflow: hidden !important; position: relative;
 }
 
 /* ==========================================================================
@@ -755,310 +277,185 @@ body.chat-fullscreen-active #chat-interface-container {
 
 /* --- Main Chat Area (Context for Sidebar) --- */
 body.chat-fullscreen-active #chat-main-area {
-    position: relative !important; /* Essential for absolute sidebar positioning */
-    display: flex !important;      /* Arrange sidebar and chat history side-by-side */
+    position: relative !important; display: flex !important;
     flex-grow: 1; width: 100%; height: 100%; min-height: 0; overflow: hidden;
 }
 
 /* --- Sidebar Styling --- */
 #chat-fullscreen-sidebar {
-     /* display: none; */ /* Default display state - JS manages visibility via d-none */
+     /* display: none; */ /* Visibility controlled by JS d-none + body class */
      position: absolute; top: 0; left: 0;
      width: 250px; /* Adjust */ height: 100%;
-     display: flex; flex-direction: column; /* Defines internal layout */
-     background-color: var(--color-bg-dark); /* Match theme */
-     border-right: 1px solid var(--color-border);
-     overflow-y: auto; overflow-x: hidden;
-     z-index: 10; /* Above chat history */
-     box-shadow: 3px 0px 15px rgba(0, 0, 0, 0.1);
-     transition: box-shadow 0.2s;
+     display: flex; flex-direction: column;
+     background-color: var(--color-bg-dark); border-right: 1px solid var(--color-border);
+     overflow-y: auto; overflow-x: hidden; z-index: 10;
+     box-shadow: 3px 0px 15px rgba(0, 0, 0, 0.1); transition: box-shadow 0.2s;
  }
 
-/* --- Show Sidebar Panel when Fullscreen (CSS Rule) --- */
-/* This rule defines *how* it displays when JS makes it visible (removes d-none) */
-/* It primarily ensures it displays as flex if JS removes d-none */
+/* --- Show/Hide Sidebar Panel based on Body Class --- */
+/* Defines *how* it displays when JS removes d-none */
 body.chat-fullscreen-active #chat-fullscreen-sidebar:not(.d-none) {
     display: flex !important;
 }
-/* Hide it when not fullscreen */
+/* Ensures hidden when not fullscreen, even if JS fails */
 body:not(.chat-fullscreen-active) #chat-fullscreen-sidebar {
     display: none !important;
 }
 
-
 /* --- Sidebar Content Styling --- */
 #chat-fullscreen-sidebar .conversation-sidebar-header {
-    color: var(--color-text-headings);
-    font-family: var(--font-primary);
-    font-size: 1.1rem;
-    font-weight: var(--font-weight-semibold);
-    padding: 1rem 1.25rem;
-    background: transparent;
-    border-bottom: 1px solid var(--color-border);
-    letter-spacing: 0.02em;
-    flex-shrink: 0; /* Prevent header shrinking */
-    display: flex; /* Added */
-    justify-content: space-between; /* Added */
-    align-items: center; /* Added */
+    color: var(--color-text-headings); font-family: var(--font-primary); font-size: 1.1rem; font-weight: var(--font-weight-semibold);
+    padding: 1rem 1.25rem; background: transparent; border-bottom: 1px solid var(--color-border);
+    letter-spacing: 0.02em; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;
 }
 .conversation-list {
-    list-style: none;
-    margin: 0;
-    padding: 0.5rem 0;
-    overflow-y: auto;
-    flex-grow: 1;
-    min-height: 0;
+    list-style: none; margin: 0; padding: 0.5rem 0; overflow-y: auto; flex-grow: 1; min-height: 0;
 }
 .conversation-list li {
-    display: flex; /* Use flex for layout */
-    align-items: center; /* Vertically center content */
-    justify-content: space-between; /* Push actions to the right */
-    color: var(--color-text-secondary);
-    padding: 0.75rem 1.25rem;
-    border-left: 3px solid transparent;
-    cursor: pointer;
-    white-space: nowrap;
-    /* Removed overflow:hidden and text-overflow:ellipsis from li if actionsDiv handles truncation */
-    font-size: 0.95rem;
+    display: flex; align-items: center; justify-content: space-between;
+    color: var(--color-text-secondary); padding: 0.75rem 1.25rem; border-left: 3px solid transparent;
+    cursor: pointer; white-space: nowrap; font-size: 0.95rem;
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-/* Style for the text part of the list item */
-.conversation-list li > span:first-child { /* Assuming title is first span */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-grow: 1; /* Allow title to take space */
-    margin-right: 0.5rem; /* Space before actions */
-}
-/* Container for action buttons */
-.conversation-actions {
-    display: inline-flex; /* Use flex for buttons */
-    align-items: center;
-    gap: 0.25rem; /* Space between buttons */
-    flex-shrink: 0; /* Prevent actions container from shrinking */
-}
-.conversation-list li:hover {
-    background-color: var(--color-bg-light);
-    color: var(--color-text-primary);
-}
-.conversation-list li.active {
-    background-color: var(--color-bg-light);
-    border-left-color: var(--color-primary);
-    color: var(--color-text-primary);
-    font-weight: var(--font-weight-medium);
-}
-/* Sidebar action button styling */
-#chat-fullscreen-sidebar .btn-link {
-    color: var(--color-text-secondary);
-    text-decoration: none;
-}
-#chat-fullscreen-sidebar .btn-link:hover {
-    color: var(--color-primary);
-}
-#new-conversation-btn i,
-.conversation-rename-btn i,
-.conversation-delete-btn i {
-    vertical-align: middle; /* Align icons better */
-}
-
+.conversation-list li > span:first-child { overflow: hidden; text-overflow: ellipsis; flex-grow: 1; margin-right: 0.5rem; }
+.conversation-actions { display: inline-flex; align-items: center; gap: 0.25rem; flex-shrink: 0; }
+.conversation-list li:hover { background-color: var(--color-bg-light); color: var(--color-text-primary); }
+.conversation-list li.active { background-color: var(--color-bg-light); border-left-color: var(--color-primary); color: var(--color-text-primary); font-weight: var(--font-weight-medium); }
+#chat-fullscreen-sidebar .btn-link { color: var(--color-text-secondary); text-decoration: none; }
+#chat-fullscreen-sidebar .btn-link:hover { color: var(--color-primary); }
+#new-conversation-btn i, .conversation-rename-btn i, .conversation-delete-btn i { vertical-align: middle; }
 
 /* --- Chat History Container Styling (Fullscreen) --- */
 body.chat-fullscreen-active #ai-result-output.chat-container {
-    display: block !important;
-    flex-grow: 1;
-    height: 100%; width: 100%; /* Will be offset by padding-left */
+    display: block !important; flex-grow: 1; height: 100%; width: 100%;
     overflow-y: auto; overflow-x: hidden;
-    /* !! CRITICAL: Adjust '250px' to match your actual #chat-fullscreen-sidebar width !! */
-    padding-left: calc(250px + 1rem) !important; /* Sidebar width + desired gap */
-    padding-right: 1.5rem !important;
-    padding-top: 1rem !important;
-    padding-bottom: 1rem !important;
-    box-sizing: border-box;
-    position: relative; max-width: none; border: none; border-radius: 0; margin: 0;
-    background-color: var(--color-bg-dark);
-    z-index: 1; /* Below sidebar */
-    /* Add scrollbar styles */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
+    /* !! CRITICAL: Adjust '250px' to match your actual sidebar width !! */
+    padding-left: calc(250px + 1rem) !important; padding-right: 1.5rem !important;
+    padding-top: 1rem !important; padding-bottom: 1rem !important;
+    box-sizing: border-box; position: relative; max-width: none; border: none; border-radius: 0; margin: 0;
+    background-color: var(--color-bg-dark); z-index: 1;
+    scrollbar-width: thin; scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
 }
 body.chat-fullscreen-active #ai-result-output.chat-container::-webkit-scrollbar { width: 6px; }
 body.chat-fullscreen-active #ai-result-output.chat-container::-webkit-scrollbar-track { background: transparent; }
 body.chat-fullscreen-active #ai-result-output.chat-container::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 3px; }
 body.chat-fullscreen-active #ai-result-output.chat-container::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
 
-
 /* --- Chat Message Max Width (Fullscreen) --- */
-body.chat-fullscreen-active .chat-message {
-    max-width: 88%; /* Allow wider messages in fullscreen */
-}
-body.chat-fullscreen-active .ai-message {
-    font-size: 0.92rem; /* Optional: slightly smaller AI font */
-}
-
-/* Ensure chat message list fills width inside padded container */
-body.chat-fullscreen-active #chat-message-list {
-    width: 100%;
-    padding-bottom: 10px; /* Space at bottom */
-}
-
+body.chat-fullscreen-active .chat-message { max-width: 88%; }
+body.chat-fullscreen-active .ai-message { font-size: 0.92rem; }
+body.chat-fullscreen-active #chat-message-list { width: 100%; padding-bottom: 10px; }
 
 /* ==========================================================================
    Fullscreen Input Form Styles
    ========================================================================== */
 
 body.chat-fullscreen-active #chat-interface-container > #ai-generation-form#ai-generation-form.ai-tool-form {
-    display: flex !important;
-    flex-shrink: 0 !important;
-    min-height: var(--form-min-height-fs, 80px) !important;
-    width: 100% !important; max-width: none !important;
-    margin: 0 !important;
-    padding: 1rem 2rem !important;
-    box-sizing: border-box !important;
-    background-color: var(--color-bg-dark) !important;
-    border-top: 1px solid var(--color-border) !important;
-    box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.2) !important;
-    z-index: 5 !important;
-    align-items: center !important;
-    justify-content: normal !important;
+    display: flex !important; flex-shrink: 0 !important; min-height: var(--form-min-height-fs, 80px) !important;
+    width: 100% !important; max-width: none !important; margin: 0 !important; padding: 1rem 2rem !important;
+    box-sizing: border-box !important; background-color: var(--color-bg-dark) !important;
+    border-top: 1px solid var(--color-border) !important; box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.2) !important;
+    z-index: 5 !important; align-items: center !important; justify-content: normal !important;
 }
-
-/* Inner div for form content */
 body.chat-fullscreen-active #chat-interface-container > #ai-generation-form > div {
     width: 100%; display: flex; align-items: flex-end; gap: 10px;
     margin: 0 !important; padding: 0 !important; max-width: none !important;
 }
-
-/* Textarea Styling (Fullscreen) */
 body.chat-fullscreen-active textarea#ai-prompt-input {
     flex-grow: 1; min-height: 48px; max-height: 250px; resize: none; overflow-y: auto;
     background: var(--color-bg-light) !important; color: var(--color-text-primary) !important;
-    border: 1px solid var(--color-border) !important; border-radius: 24px !important; /* Pill shape */
-    padding: 12px 20px !important; line-height: 1.5 !important;
-    font-size: var(--base-font-size, 1rem) !important; box-shadow: none !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    /* Scrollbar */
+    border: 1px solid var(--color-border) !important; border-radius: 24px !important;
+    padding: 12px 20px !important; line-height: 1.5 !important; font-size: var(--base-font-size, 1rem) !important;
+    box-shadow: none !important; transition: border-color 0.2s ease, box-shadow 0.2s ease;
     scrollbar-width: thin; scrollbar-color: rgba(var(--color-primary-rgb), 0.3) transparent;
 }
 body.chat-fullscreen-active textarea#ai-prompt-input::-webkit-scrollbar { width: 6px; }
 body.chat-fullscreen-active textarea#ai-prompt-input::-webkit-scrollbar-track { background: transparent; }
 body.chat-fullscreen-active textarea#ai-prompt-input::-webkit-scrollbar-thumb { background: rgba(var(--color-primary-rgb), 0.3); border-radius: 3px; }
 body.chat-fullscreen-active textarea#ai-prompt-input::-webkit-scrollbar-thumb:hover { background: rgba(var(--color-primary-rgb), 0.5); }
-/* Focus state */
 body.chat-fullscreen-active textarea#ai-prompt-input:focus {
-    border-color: var(--color-primary) !important;
-    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2);
-    outline: none;
+    border-color: var(--color-primary) !important; box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.2); outline: none;
 }
-
-/* Send Button Styling (Fullscreen) */
 body.chat-fullscreen-active #ai-generate-button {
-     background: var(--color-primary); color: var(--color-bg-dark);
-     border: none; border-radius: 50%; /* Circle */
-     width: 48px; height: 48px; min-width: 48px;
-     padding: 0; display: flex; align-items: center; justify-content: center;
-     box-shadow: var(--shadow-sm);
-     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+     background: var(--color-primary); color: var(--color-bg-dark); border: none; border-radius: 50%;
+     width: 48px; height: 48px; min-width: 48px; padding: 0; display: flex; align-items: center; justify-content: center;
+     box-shadow: var(--shadow-sm); transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
      flex-shrink: 0; cursor: pointer;
 }
 body.chat-fullscreen-active #ai-generate-button:hover:not(:disabled) {
-     background: var(--color-warning); color: var(--color-bg-dark);
-     transform: scale(1.05); box-shadow: var(--shadow-md);
+     background: var(--color-warning); color: var(--color-bg-dark); transform: scale(1.05); box-shadow: var(--shadow-md);
 }
 body.chat-fullscreen-active #ai-generate-button i { font-size: 1.25rem; }
-/* Disabled state */
 body.chat-fullscreen-active #ai-generate-button:disabled {
-    background-color: var(--color-bg-light); color: var(--color-text-secondary);
-    opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none;
+    background-color: var(--color-bg-light); color: var(--color-text-secondary); opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none;
 }
 
 
 /* ==========================================================================
-   Zoom Button Styles (Two-Button Approach - Correct CSS Order)
+   Zoom Button Styles (Two-Button Approach - Specificity Boost)
    ========================================================================== */
 
 /* --- Base Styling (Common to both buttons) --- */
 .chat-zoom-btn { /* CLASS used on BOTH buttons in HTML */
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--color-bg-lighter); /* Or your specific background */
-    color: var(--color-primary); /* Or your specific color */
-    border: 1px solid var(--color-border); /* Or your specific border */
-    font-size: 1.1rem;
-    display: flex; /* Base display type */
-    align-items: center;
-    justify-content: center;
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--color-bg-lighter); color: var(--color-primary);
+    border: 1px solid var(--color-border);
+    font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
     cursor: pointer;
-    /* --- Z-INDEX FIX --- */
     z-index: var(--z-zoom-button) !important; /* Ensure above navbar */
     box-shadow: var(--shadow-sm);
     transition: background-color 0.2s ease, color 0.2s ease,
                 transform 0.2s ease, box-shadow 0.2s ease,
                 border-color 0.2s ease;
 }
-
 .chat-zoom-btn:hover {
-    background: var(--color-primary); /* Or your hover background */
-    color: var(--color-bg-dark); /* Or your hover text color */
+    background: var(--color-primary); color: var(--color-bg-dark);
     transform: scale(1.08) rotate(10deg);
-    box-shadow: var(--shadow-md);
-    border-color: var(--color-primary); /* Or your hover border color */
+    box-shadow: var(--shadow-md); border-color: var(--color-primary);
 }
 
 /* --- Button Positioning --- */
-/* Button 1 (Normal View) */
 #chat-zoom-toggle-normal {
-    position: absolute; /* Relative to parent (e.g., #tool-access-area needs position:relative) */
-    top: 15px;          /* Adjust as needed */
-    right: 15px;         /* Adjust as needed */
-}
-/* Button 2 (Fullscreen View) */
-#chat-zoom-toggle-fullscreen {
-    position: fixed;   /* Relative to viewport */
-    top: 18px;         /* Position near viewport top-right for navbar overlap */
-    right: 10px;        /* Position near viewport top-right for navbar overlap */
-}
-
-
-/* --- CSS Visibility Control based ONLY on Body Class (ORDER MATTERS) --- */
-
-#chat-zoom-toggle-normal {
-    display: flex !important;  /* Default visible */
+    position: absolute; top: 15px; right: 15px;
 }
 #chat-zoom-toggle-fullscreen {
-   display: none !important; /* Default hidden */
+    position: fixed; top: 17px; right: 10px;
+}
+
+/* --- CSS Visibility Control (ORDER MATTERS + SPECIFICITY BOOST) --- */
+
+/* Default State Rules (Appear FIRST) */
+#chat-zoom-toggle-normal {
+     display: flex !important;  /* Default visible */
+}
+#chat-zoom-toggle-fullscreen {
+    display: none !important; /* Default hidden */
 }
 
 /* Fullscreen State Rules (Appear AFTER default rules & INCREASED SPECIFICITY) */
-/* Add 'html' or another high-level ancestor to increase specificity */
 html body.chat-fullscreen-active #chat-zoom-toggle-normal {
-   display: none !important; /* Hide normal in fullscreen */
+    display: none !important; /* Hide normal in fullscreen */
 }
 html body.chat-fullscreen-active #chat-zoom-toggle-fullscreen {
-   display: flex !important; /* Show fullscreen button in fullscreen */
+    display: flex !important; /* Show fullscreen button in fullscreen */
 }
 
 /* --- Mobile Adjustments --- */
 @media (max-width: 767px) {
-    /* Base size adjustment for mobile */
-    .chat-zoom-btn {
-        width: 38px;
-        height: 38px;
-        font-size: 1rem;
-    }
-    /* Positioning remains the same as desktop unless overridden */
-    #chat-zoom-toggle-normal {
-        top: 10px; /* Example mobile adjustment */
-        right: 10px;/* Example mobile adjustment */
-    }
-    #chat-zoom-toggle-fullscreen {
-        top: 10px; /* Example mobile adjustment */
-        right: 10px;/* Example mobile adjustment */
-    }
+    .chat-zoom-btn { width: 38px; height: 38px; font-size: 1rem; }
+    #chat-zoom-toggle-normal { top: 10px; right: 10px; }
+    #chat-zoom-toggle-fullscreen { top: 10px; right: 10px; }
 }
+
 
 /* ==========================================================================
    Utility & Message Action Styles
    ========================================================================== */
+
+/* Utility classes for hiding/showing elements */
+.d-none {
+    display: none !important;
+}
 
 /* Force page-wrapper to allow full width for fixed fullscreen chat */
 body.chat-fullscreen-active .page-wrapper {
@@ -1082,8 +479,7 @@ body.chat-fullscreen-active #ai-tool > .container {
     padding: 0 0.25rem;
     line-height: 1; vertical-align: middle;
     font-size: 0.9em;
-    /* Position it if needed, e.g., absolutely within .chat-message */
-    /* position: absolute; top: 5px; right: 5px; */
+    /* position: absolute; top: 5px; right: 5px; */ /* Example absolute positioning if needed */
 }
 
 /* Show delete button on message hover */
@@ -1095,13 +491,3 @@ body.chat-fullscreen-active #ai-tool > .container {
     opacity: 1; /* Fully visible on direct hover */
     color: var(--color-danger); /* Danger color on hover */
 }
-
-/* Ensure visibility in fullscreen regardless of hover */
-/* Adjust if needed, but hover might be sufficient */
-/* body.chat-fullscreen-active .message-delete-btn {
-    opacity: 0.7 !important;
-} */
-/* body.chat-fullscreen-active .message-delete-btn:hover {
-    opacity: 1 !important;
-    color: var(--color-danger) !important;
-} */
