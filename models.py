@@ -1,10 +1,10 @@
 # models.py
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, JSON
 from sqlalchemy.sql import func
 from sqlmodel import Column, Field, Relationship, SQLModel, TEXT
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 
 class User(SQLModel, table=True):
@@ -36,7 +36,8 @@ class Conversation(SQLModel, table=True):
         nullable=False
     )
     is_active: bool = Field(default=True, index=True)
-
+    context_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON)) # Store context as JSON
+    system_prompt_override: Optional[str] = Field(default=None, sa_column=Column(TEXT)) # Store specific system prompt
     user: User = Relationship(back_populates="conversations")
     messages: List["ChatMessage"] = Relationship(
         back_populates="conversation",

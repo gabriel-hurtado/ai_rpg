@@ -1,47 +1,70 @@
 # docker-compose.yml
+# version: '3.8' # Remove this line
+
 services:
   db:
-    image: postgres:15 # Uses the image you loaded/pulled
+    image: postgres:15
     container_name: ai_rpg_db
-    restart: unless-stopped # More flexible restart policy
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}             # Read from .env
-      POSTGRES_USER: ${POSTGRES_USER}           # Read from .env
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}     # Read from .env
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Persist data
-    # Ports mapping is optional if only the 'web' service needs DB access
-    # Keep it if you want to connect from your host machine (e.g., DBeaver)
-    ports:
+      - postgres_data:/var/lib/postgresql/data
+    ports: # Keep for host access if needed
       - "5432:5432"
+    networks: # Define network
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s # Allow time for DB to initialize
+    
 
   web:
     container_name: ai_rpg_web
-    # Build the image using the Dockerfile in the current directory (.)
     build: .
-    # Command to run inside the container. Overrides Dockerfile CMD if needed.
-    # We add --reload here specifically for development convenience.
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    # ENTRYPOINT in Dockerfile now handles startup logic (migrations)
+    # The CMD in Dockerfile is ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # We override CMD here to add --reload FOR DEVELOPMENT ONLY
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     volumes:
-      # Mount your local code directory into the container's /app directory
-      # Changes you make locally will reflect inside the container (for --reload)
-      # NOTE: This is for DEVELOPMENT ONLY. Remove for production.
+      # Mount code for development reload
       - .:/app
     ports:
-      # Map port 8000 on your host machine to port 8000 in the container
       - "8000:8000"
     environment:
-      # Pass environment variables needed by the FastAPI app
-      # IMPORTANT: Use the CONTAINER_DATABASE_URL here
-      DATABASE_URL: ${CONTAINER_DATABASE_URL}
+      # Pass ALL necessary variables from .env
+      # Entrypoint script specifically uses CONTAINER_DATABASE_URL to set DATABASE_URL for alembic
+      DATABASE_URL: ${DATABASE_URL} # Passed for app potentially, though entrypoint sets it too
+      CONTAINER_DATABASE_URL: ${CONTAINER_DATABASE_URL} # REQUIRED by entrypoint.sh
+      POSTGRES_DB: ${POSTGRES_DB} # App might need these if constructing URL manually? Usually not.
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # --- Add ALL other secrets from your .env ---
       PROPELAUTH_URL: ${PROPELAUTH_URL}
       PROPELAUTH_API_KEY: ${PROPELAUTH_API_KEY}
       PROPELAUTH_VERIFIER_KEY: ${PROPELAUTH_VERIFIER_KEY}
-      # Add other variables like Stripe, Google keys when needed
-    # Ensures the 'db' service is started and healthy before 'web' starts
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLIC_KEY: ${STRIPE_PUBLIC_KEY}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      APP_BASE_URL: ${APP_BASE_URL} # Might need adjustment depending on deployment context
     depends_on:
-      db:
-        condition: service_started # Or use service_healthy if you add healthchecks
+      # - db # Simple depends_on just waits for container start
+      # More robust wait using healthcheck (add HEALTHCHECK to db service):
+       db:
+         condition: service_healthy # RECOMMENDED if you add a healthcheck below
+    networks:
+      - app-network
 
 volumes:
-  postgres_data: # Define the named volume used by the db service
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

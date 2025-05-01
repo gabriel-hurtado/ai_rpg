@@ -30,6 +30,7 @@ google-generativeai = "^0.8.5"
 python-multipart = "^0.0.20"
 markdown = "^3.8"
 sse-starlette = "^2.3.3"
+sqlalchemy = {extras = ["postgresql-psycopg"], version = "^2.0.40"}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"] # Standard requirement for poetry-core
