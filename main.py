@@ -56,20 +56,19 @@ else:
 # --- Initialize PropelAuth ---
 AUTH_URL = os.getenv("PROPELAUTH_URL")
 API_KEY = os.getenv("PROPELAUTH_API_KEY")
-VERIFIER_KEY = os.getenv("PROPELAUTH_VERIFIER_KEY", "").replace('\\n', '\n') # Read and handle newlines
 
 auth = None
 require_user = None
 optional_user = None
 
 try:
-    if not AUTH_URL or not API_KEY or not VERIFIER_KEY:
+    if not AUTH_URL or not API_KEY:
         logger.error("PropelAuth env vars missing! Auth features disabled.")
         # Set dependencies to None to avoid errors if auth fails init
         require_user = lambda: None # Dummy dependency
         optional_user = lambda: None # Dummy dependency
     else:
-        auth = init_auth(AUTH_URL, API_KEY, VERIFIER_KEY)
+        auth = init_auth(AUTH_URL, API_KEY)
         logger.info(f"PropelAuth initialized for Auth URL: {AUTH_URL}")
         require_user = auth.require_user
         optional_user = auth.optional_user
