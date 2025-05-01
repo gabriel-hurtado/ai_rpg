@@ -1,0 +1,61 @@
+<!-- templates/chat_setup/_step_goal.html -->
+{# This fragment replaces the content of #modal-content-area #}
+<div class="d-flex p-3"> {# Add padding here instead of modal-body #}
+
+    <!-- === Modal Navigation (Sidebar) === -->
+    <div class="modal-nav flex-shrink-0 pe-3 me-3 border-end border-secondary" style="width: 180px;">
+        <p class="text-muted small mb-2 fw-bold text-uppercase">CONTEXT</p>
+        <nav class="nav flex-column nav-pills">
+            <button type="button" class="nav-link active text-start mb-1" aria-current="page" disabled> {# Active & Disabled #}
+               <i class="bi bi-bullseye me-2"></i>Goal
+            </button>
+            <button type="button" class="nav-link text-start mb-1"
+                    hx-get="/api/v1/chat/setup/fragment?section=context"
+                    hx-target="#modal-step-content"
+                    hx-include="closest form">
+                <i class="bi bi-pencil-square me-2"></i>Context Details
+            </button>
+            {# Add other nav items if you break down context further #}
+        </nav>
+    </div>
+
+    <!-- === Modal Step Content Area === -->
+    <div class="modal-step-content flex-grow-1" id="modal-step-content">
+        <form id="context-setup-form" autocomplete="off">
+            {# Hidden fields first #}
+            <input type="hidden" name="conversation_id" value="{{ context.get('conversation_id') }}">
+            {# Pass other context keys if they exist (they will on subsequent loads) #}
+            <input type="hidden" name="genre_tone" value="{{ context.get('genre_tone', '') }}">
+            <input type="hidden" name="game_system" value="{{ context.get('game_system', '') }}">
+            <input type="hidden" name="key_details" value="{{ context.get('key_details', '') }}">
+
+            {# --- Inputs for THIS step (Goal) --- #}
+            <h6 class="mb-3 fw-bold"><i class="bi bi-bullseye me-2"></i>Primary Goal</h6>
+            <div class="mb-3">
+                <label for="context-goal" class="form-label small text-muted">What kind of content do you primarily want to generate?</label>
+                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="context-goal" name="goal" required>
+                    {# Use context.get() for safer access and default selection #}
+                    <option value="describe_location" {% if context.get('goal') == 'describe_location' %}selected{% endif %}>Describe Location/Scene</option>
+                    <option value="create_npc" {% if context.get('goal') == 'create_npc' %}selected{% endif %}>Create NPC</option>
+                    <option value="create_monster" {% if context.get('goal') == 'create_monster' %}selected{% endif %}>Create Monster</option>
+                    <option value="create_item" {% if context.get('goal') == 'create_item' %}selected{% endif %}>Create Magic Item</option>
+                    <option value="create_encounter" {% if context.get('goal') == 'create_encounter' %}selected{% endif %}>Design Encounter/Plot Hook</option>
+                    <option value="refine_text" {% if context.get('goal') == 'refine_text' %}selected{% endif %}>Refine Existing Text</option>
+                    <option value="charsheet" {% if context.get('goal') == 'charsheet' %}selected{% endif %}>Generate Character Sheets</option>
+                </select>
+            </div>
+
+            {# --- Footer Buttons within the fragment --- #}
+            <div class="modal-footer-fragment border-top border-secondary pt-3 mt-4 d-flex justify-content-between">
+                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                 <button type="button" class="btn btn-info btn-sm"
+                         hx-get="/api/v1/chat/setup/fragment?section=context"
+                         hx-target="#modal-content-area"
+                         hx-swap="innerHTML" {# Replace whole content area #}
+                         hx-include="closest form">
+                     Next: Context Details »
+                 </button>
+            </div>
+        </form> {# End form #}
+    </div> {# End step content #}
+</div> {# End d-flex #}

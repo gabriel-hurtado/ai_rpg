@@ -1,0 +1,74 @@
+<!-- templates/chat_setup/_step_context.html -->
+{# This fragment replaces the content of #modal-content-area #}
+<div class="d-flex p-3">
+
+    <!-- === Modal Navigation (Sidebar) === -->
+    <div class="modal-nav flex-shrink-0 pe-3 me-3 border-end border-secondary" style="width: 180px;">
+        <p class="text-muted small mb-2 fw-bold text-uppercase">CONTEXT</p>
+        <nav class="nav flex-column nav-pills">
+             <button type="button" class="nav-link text-start mb-1"
+                    hx-get="/api/v1/chat/setup/fragment?section=goal"
+                    hx-target="#modal-step-content"
+                    hx-include="closest form">
+                <i class="bi bi-bullseye me-2"></i>Goal
+            </button>
+             <button type="button" class="nav-link active text-start mb-1" aria-current="page" disabled> {# Active & Disabled #}
+                <i class="bi bi-pencil-square me-2"></i>Context Details
+            </button>
+            {# Add other nav items if needed #}
+        </nav>
+    </div>
+
+    <!-- === Modal Step Content Area === -->
+    <div class="modal-step-content flex-grow-1" id="modal-step-content">
+        <form id="context-setup-form" hx-post="/api/v1/chat/setup/save" hx-target="#modal-content-area" hx-swap="innerHTML" hx-indicator="#modal-loading-indicator" autocomplete="off">
+            {# --- Hidden Fields --- #}
+            <input type="hidden" name="conversation_id" value="{{ context.get('conversation_id') }}">
+            <input type="hidden" name="goal" value="{{ context.get('goal') }}"> {# Crucial: pass goal #}
+
+            {# --- Inputs for THIS step (Context Details) --- #}
+            <h6 class="mb-3 fw-bold"><i class="bi bi-pencil-square me-2"></i>Context Details</h6>
+
+            <div class="mb-3">
+                <label for="context-genre-tone" class="form-label small text-muted">Genre & Tone <small>(Optional)</small></label>
+                <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" id="context-genre-tone" name="genre_tone" value="{{ context.get('genre_tone', '') }}" placeholder="e.g., High Fantasy, Comedic Sci-Fi, Grimdark Noir">
+            </div>
+
+            <div class="mb-3">
+                <label for="context-game-system" class="form-label small text-muted">Game System <small>(Optional)</small></label>
+                <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" id="context-game-system" name="game_system" value="{{ context.get('game_system', '') }}" placeholder="e.g., D&D 5e, System-Agnostic, My Homebrew Rules">
+            </div>
+
+             <div class="mb-3">
+                <label for="context-key-details" class="form-label small text-muted">
+                    Key Details / Specific Request
+                    {% if context.get('goal') == 'refine_text' %}
+                        <strong class="text-warning">(Paste text to refine here)</strong>
+                    {% endif %}
+                    <small>(Optional)</small>
+                </label>
+                <textarea class="form-control form-control-sm bg-dark text-light border-secondary" id="context-key-details" name="key_details" rows="5" placeholder="Add any crucial names, places, keywords, constraints, or text to refine...">{{ context.get('key_details', '') }}</textarea>
+             </div>
+
+
+            {# --- Footer Buttons within the fragment --- #}
+            <div class="modal-footer-fragment border-top border-secondary pt-3 mt-4 d-flex justify-content-between align-items-center">
+                {# Back button targets the specific fragment endpoint #}
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        hx-get="/api/v1/chat/setup/fragment?section=goal"
+                        hx-target="#modal-content-area"
+                        hx-include="closest form">
+                    « Back to Goal
+                </button>
+                 {# Loading Indicator #}
+                 <div id="modal-loading-indicator" class="htmx-indicator spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                {# Final Save button #}
+                <button type="submit" class="btn btn-primary btn-sm custom-btn"> {# Removed btn-info #}
+                   <i class="bi bi-check-lg me-2"></i> Save Context & Start Chat
+                </button>
+            </div>
+        </form> {# End form #}
+    </div> {# End step content #}
+</div> {# End d-flex #}

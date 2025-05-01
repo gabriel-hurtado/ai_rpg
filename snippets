@@ -1,3 +1,3 @@
 docker build --target builder -t myapp-builder .
-docker run --rm -v "${PWD}:/app" myapp-builder poetry add <package-name>
-
+docker run --rm -v "${PWD}:/app" myapp-builder poetry add sqlalchemy[postgresql_psycopg]
+docker run --rm -v "${PWD}:/app" -it myapp-builder /bin/bash

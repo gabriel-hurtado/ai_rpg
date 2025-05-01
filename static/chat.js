@@ -21,6 +21,7 @@ const ChatManager = {
   chatInitialized: false,
   // Keep track of fullscreen state internally within ChatManager
   isFullscreenActive: false,
+  contextModalInstance: null, 
 
   /**
    * Load the user's latest conversation or show the new conversation prompt.
@@ -55,72 +56,98 @@ const ChatManager = {
     }
   },
 
-  /**
+   /**
    * Load and display a specific conversation by ID, or initial state if ID is null.
+   * MODIFIED: Show/hide modify context button and update active context display.
    */
-  async loadAndDisplayConversation(conversationId) {
+   async loadAndDisplayConversation(conversationId) {
     const chatDisplay = document.getElementById('chat-message-list');
+    const modifyContextControls = document.getElementById('chat-context-controls'); // Get controls div
+    const activeContextDisplay = document.getElementById('active-context-display'); // Get display area
+
     if (!chatDisplay) {
         console.error('[Chat] loadAndDisplayConversation: chat-message-list not found.');
         return;
     }
     chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Loading conversation...</p>';
+
+    // Hide controls and clear context display initially
+    if (modifyContextControls) modifyContextControls.style.display = 'none';
+    if (activeContextDisplay) activeContextDisplay.innerHTML = '';
+
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
 
-    // Handle null conversationId (new/initial state)
     if (!conversationId) {
-        console.log('[Chat] loadAndDisplayConversation: No conversation ID provided, displaying initial prompt.');
+        console.log('[Chat] loadAndDisplayConversation: No conversation ID, displaying initial prompt.');
         this.currentConversationId = null;
-        chatDisplay.innerHTML = ''; // Clear loading message
-        removeInitialPrompt(chatDisplay); // Ensure any previous prompt/error is gone
-        renderMessage('ai', 'Welcome! How can I help you create today?', chatDisplay); // Display initial AI message
+        chatDisplay.innerHTML = '';
+        removeInitialPrompt(chatDisplay);
+        renderMessage('ai', 'Welcome! Start a New Chat (+) to set up your adventure context or select an existing one.', chatDisplay);
         scrollToBottom('ai-result-output', false);
         return; // Exit early
     }
 
-    // Proceed if conversationId exists and user is logged in
     if (!token) {
       renderChatError('You must be logged in to load conversations.', chatDisplay);
       return;
     }
 
-    // Fetch and display the specific conversation
     try {
       console.log(`[Chat] Fetching conversation ID: ${conversationId}`);
-      const conversation = await fetchConversationById(conversationId, token); // Assumes fetchConversationById is available
-      chatDisplay.innerHTML = ''; // Clear loading message/previous content
-      removeInitialPrompt(chatDisplay); // Clear any lingering initial prompt
+      const data = await fetchConversationById(conversationId, token);
+      chatDisplay.innerHTML = '';
+      removeInitialPrompt(chatDisplay);
 
-      if (!conversation || !Array.isArray(conversation.messages) || conversation.messages.length === 0) {
+      const conversation = data.conversation; // Extract conversation details
+      const messages = data.messages;       // Extract messages
+
+      if (!conversation) {
+          throw new Error("Conversation data missing in API response.");
+      }
+
+      if (!Array.isArray(messages) || messages.length === 0) {
         console.warn('[Chat] Conversation loaded but has no messages:', conversationId);
-        renderMessage('ai', 'This conversation is empty. Start typing to add a message!', chatDisplay);
+        renderMessage('ai', 'This conversation is empty. Start typing!', chatDisplay);
       } else {
-        console.log(`[Chat] Rendering ${conversation.messages.length} messages for conversation ${conversationId}`);
-        conversation.messages.forEach((msg, idx) => {
-          renderMessage( // Assumes renderMessage is available
+        console.log(`[Chat] Rendering ${messages.length} messages for conversation ${conversationId}`);
+        messages.forEach((msg, idx) => {
+          renderMessage(
             msg.role === 'user' ? 'user' : 'ai',
             msg.content,
             chatDisplay,
-            msg.id || `temp-${idx}`, // Provide a temporary ID if missing
-            async (deleteIdx) => { // Pass the delete handler callback
+            msg.id || `temp-${idx}`,
+            async (deleteIdx) => {
               if (confirm('Delete this message and all after?')) {
                 await ChatManager.deleteMessageAndAfter(deleteIdx);
               }
             },
-            idx // Pass the original index
+            idx
           );
         });
       }
       this.currentConversationId = conversationId;
-      console.log('[Chat] Successfully loaded and displayed conversation:', conversationId);
-    }
-    catch (e) {
+      console.log('[Chat] Successfully loaded conversation:', conversationId);
+
+      this.updateActiveContextDisplay(conversation.context); // Update display
+      if (modifyContextControls) modifyContextControls.style.display = 'flex'; // Show button
+
+      // --- Context Display Update ---
+      if (conversation.context) {
+           this.updateActiveContextDisplay(conversation.context); // Update display with loaded context
+      } else {
+           if(activeContextDisplay) activeContextDisplay.innerHTML = '<span class="text-muted small">No specific context set.</span>'; // Default if no context
+      }
+      if (modifyContextControls) modifyContextControls.style.display = 'flex'; // Show modify button
+
+
+    } catch (e) {
       console.error(`[Chat] Error loading conversation ${conversationId}:`, e);
       renderChatError(`Error loading conversation: ${e.message}`, chatDisplay);
       this.currentConversationId = null;
+       if (modifyContextControls) modifyContextControls.style.display = 'none'; // Hide on error
+       if (activeContextDisplay) activeContextDisplay.innerHTML = '';
     }
-    // Ensure scrolling happens after content is potentially rendered
-    setTimeout(() => scrollToBottom('ai-result-output', false), 50); // Allow a tick for rendering
+    setTimeout(() => scrollToBottom('ai-result-output', false), 50);
   },
 
   /**
@@ -299,283 +326,6 @@ const ChatManager = {
   /**
    * Initialize the chat (load latest conversation, set flag).
    */
-// static/chat.js (Inside ChatManager object)
-
-  /**
-   * Initialize the chat (load latest conversation, set flag).
-   * Modified to explicitly use ChatManager instead of 'this' for robustness.
-   */
-  initializeChat() {
-    // Use ChatManager.chatInitialized instead of this.chatInitialized
-    if (ChatManager.chatInitialized) {
-      console.log('[Chat] InitializeChat called, but already initialized.');
-      return;
-    }
-    console.log('[Chat] Initializing chat...');
-
-    // Explicitly use ChatManager.isFullscreenActive instead of this.isFullscreenActive
-    ChatManager.isFullscreenActive = document.body.classList.contains('chat-fullscreen-active');
-
-    // Explicitly call methods on ChatManager
-    ChatManager.loadLatestConversation();
-
-    // Explicitly set property on ChatManager
-    ChatManager.chatInitialized = true;
-    console.log('[Chat] Chat initialized flag set to true.');
-
-    // Explicitly call method on ChatManager
-    ChatManager._syncUIWithState();
-
-    setTimeout(() => scrollToBottom('ai-result-output', false), 150);
-  }, // End initializeChat
-
-  /**
-   * Render the sidebar conversation list.
-   */
-  async renderSidebarConversations() {
-    const sidebar = document.getElementById('chat-fullscreen-sidebar');
-    const list = document.getElementById('conversation-list');
-    const newBtn = document.getElementById('new-conversation-btn'); // Assuming this ID exists
-
-    if (!sidebar || !list) {
-      console.warn('[Chat] renderSidebarConversations: Sidebar or list element not found.');
-      return;
-    }
-    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-
-    if (!token) {
-      list.innerHTML = '<li><span class="text-muted small">Please log in</span></li>';
-      if (newBtn) newBtn.disabled = true;
-      return;
-    }
-
-    if (newBtn) newBtn.disabled = false; // Enable if logged in
-
-    try {
-      const conversations = await fetchConversations(token); // Assumes fetchConversations is available
-      list.innerHTML = ''; // Clear previous list
-
-      if (!Array.isArray(conversations) || conversations.length === 0) {
-        list.innerHTML = '<li><span class="text-muted small">No conversations yet</span></li>';
-      } else {
-        conversations.forEach(conv => {
-          const li = document.createElement('li');
-          li.textContent = conv.title || 'Untitled Conversation';
-          li.title = conv.title || 'Untitled Conversation';
-          li.dataset.conversationId = conv.id; // Store ID for easy access
-
-          if (conv.id === this.currentConversationId) {
-            li.classList.add('active');
-          }
-
-          const actionsDiv = document.createElement('div');
-          actionsDiv.className = 'conversation-actions';
-          actionsDiv.style.cssText = 'display: inline-flex; align-items: center; margin-left: auto; gap: 0.25rem;'; // Use flex for alignment
-
-          const renameBtn = document.createElement('button');
-          renameBtn.className = 'btn btn-link btn-sm p-0 conversation-rename-btn'; // Removed ms-* for flex gap
-          renameBtn.title = 'Rename Conversation';
-          renameBtn.innerHTML = '<i class="bi bi-pencil"></i>';
-          renameBtn.addEventListener('click', (e) => { e.stopPropagation(); this.showRenameDialog(conv); });
-          actionsDiv.appendChild(renameBtn);
-
-          const deleteBtn = document.createElement('button');
-          deleteBtn.className = 'btn btn-link btn-sm p-0 conversation-delete-btn'; // Removed ms-* for flex gap
-          deleteBtn.title = 'Delete Conversation';
-          deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
-          deleteBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (confirm(`Are you sure you want to delete "${conv.title || 'Untitled Conversation'}"?`)) {
-              try {
-                 await this.deleteConversation(conv.id);
-                 await this.renderSidebarConversations();
-                 if (conv.id === this.currentConversationId) {
-                     await this.loadLatestConversation();
-                 }
-              } catch (deleteError) { console.error("Error deleting conversation:", deleteError); alert("Failed to delete conversation."); }
-            }
-          });
-          actionsDiv.appendChild(deleteBtn);
-          li.appendChild(actionsDiv);
-          // Make list item itself flex to push actions to the right
-          li.style.display = 'flex';
-          li.style.alignItems = 'center';
-          li.style.justifyContent = 'space-between';
-
-
-          li.addEventListener('click', async () => {
-            if (conv.id !== this.currentConversationId) {
-              console.log(`[Chat] Sidebar: Switching to conversation ${conv.id}`);
-              await this.loadAndDisplayConversation(conv.id);
-              list.querySelectorAll('li').forEach(item => item.classList.remove('active'));
-              li.classList.add('active');
-            }
-          });
-          list.appendChild(li);
-        });
-      }
-
-      // Attach 'New Conversation' listener only once
-      if (newBtn && !newBtn.dataset.listenerAttached) {
-        newBtn.dataset.listenerAttached = 'true';
-        newBtn.addEventListener('click', async (e) => {
-          e.preventDefault();
-          console.log('[Chat] "New Conversation" button clicked.');
-           try {
-                await this.createNewConversation();
-                await this.renderSidebarConversations();
-                await this.loadLatestConversation();
-           } catch (createError) { console.error("Error creating new conversation:", createError); alert("Failed to create new conversation."); }
-        });
-      }
-
-    } catch (e) {
-      console.error('[Chat] Error loading conversations for sidebar:', e);
-      list.innerHTML = '<li><span class="text-danger small">Error loading</span></li>';
-      if (newBtn) newBtn.disabled = true;
-    }
-  },
-
-  /** Show rename prompt and call API */
-  async showRenameDialog(conv) {
-    const currentTitle = conv.title || 'Untitled Conversation';
-    const newTitle = prompt('Enter new name for conversation:', currentTitle);
-    if (newTitle && newTitle.trim() && newTitle.trim() !== currentTitle) {
-       try {
-            await this.renameConversation(conv.id, newTitle.trim());
-            await this.renderSidebarConversations(); // Refresh list to show new name
-       } catch (renameError) { console.error("Error renaming conversation:", renameError); alert("Failed to rename conversation."); }
-    }
-  },
-
-  /** Call API to create a new conversation */
-  async createNewConversation() {
-    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-    if (!token) throw new Error("Authentication required.");
-    const response = await fetch('/api/v1/conversations', { // Assumes API endpoint
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    });
-     if (!response.ok) {
-         const errorData = await response.text();
-         throw new Error(`Failed to create conversation: ${response.status} ${errorData}`);
-     }
-     console.log('[Chat] New conversation created via API.');
-  },
-
-  /** Call API to rename a conversation */
-  async renameConversation(conversationId, newTitle) {
-    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-    if (!token) throw new Error("Authentication required.");
-    const response = await fetch(`/api/v1/conversations/${conversationId}`, { // Assumes API endpoint
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newTitle })
-    });
-     if (!response.ok) {
-         const errorData = await response.text();
-         throw new Error(`Failed to rename conversation: ${response.status} ${errorData}`);
-     }
-      console.log(`[Chat] Conversation ${conversationId} renamed to "${newTitle}" via API.`);
-  },
-
-  /** Call API to delete a conversation */
-  async deleteConversation(conversationId) {
-    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-    if (!token) throw new Error("Authentication required.");
-    const response = await fetch(`/api/v1/conversations/${conversationId}`, { // Assumes API endpoint
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-     if (!response.ok) {
-         const errorData = await response.text();
-         throw new Error(`Failed to delete conversation: ${response.status} ${errorData}`);
-     }
-     console.log(`[Chat] Conversation ${conversationId} deleted via API.`);
-  },
-
-  /** Delete a message and all subsequent messages */
-  async deleteMessageAndAfter(messageIndex) {
-    const chatDisplay = document.getElementById('chat-message-list');
-    if (!chatDisplay) {
-        console.error('[Chat][Delete] chat-message-list not found.');
-        return;
-    }
-    const messages = Array.from(chatDisplay.children);
-    if (messageIndex < 0 || messageIndex >= messages.length) {
-      console.error('[Chat][Delete] Invalid message index:', messageIndex);
-      return;
-    }
-
-    const targetMessageElement = messages[messageIndex];
-    if (!targetMessageElement || !targetMessageElement.dataset.messageId) {
-      alert('Cannot delete message: Missing message ID on the target element.');
-      console.error('[Chat][Delete] Target message element or its data-message-id not found at index:', messageIndex);
-      return;
-    }
-    const messageIdToDelete = targetMessageElement.dataset.messageId; // ID of the first message to delete
-
-    // Check for preceding user prompt for potential regeneration
-    let promptForRegeneration = null;
-    if (targetMessageElement.classList.contains('ai-message') && messageIndex > 0) {
-        const precedingUserElement = messages[messageIndex - 1];
-        if (precedingUserElement && precedingUserElement.classList.contains('user-message')) {
-            let contentElement = precedingUserElement.querySelector('.markdown-content p') || precedingUserElement.querySelector('.markdown-content') || precedingUserElement;
-            promptForRegeneration = contentElement.textContent || contentElement.innerText || '';
-            promptForRegeneration = promptForRegeneration.replace(/^User\s*/, '').trim();
-            // console.log('[Chat][Delete] Found preceding user prompt for regeneration:', promptForRegeneration);
-        } else {
-            // console.warn('[Chat][Delete] Target is AI message, but preceding element is not a user message.');
-        }
-    }
-
-    const conversationId = this.currentConversationId;
-    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-    if (!token || !conversationId) {
-      alert('Cannot delete message: Missing authentication or conversation context.');
-      return;
-    }
-    console.log(`[Chat][Delete] Attempting to delete message ${messageIdToDelete} and subsequent messages in conversation ${conversationId}`);
-
-    try {
-        const response = await fetch(`/api/v1/conversations/${conversationId}/messages/${messageIdToDelete}`, {
-            method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to delete message(s): ${response.status} ${errorText}`);
-        }
-        console.log(`[Chat][Delete] API call successful for message ${messageIdToDelete}.`);
-
-        // Remove messages from UI
-        const messagesToRemove = Array.from(chatDisplay.children).slice(messageIndex);
-        messagesToRemove.forEach(msg => msg.remove());
-        console.log(`[Chat][Delete] Removed ${messagesToRemove.length} message elements from UI.`);
-
-        // Trigger Regeneration if applicable
-        if (promptForRegeneration && promptForRegeneration.length > 0) {
-            console.log('[Chat][Delete] Triggering regeneration for prompt:', promptForRegeneration);
-            const textareaElement = document.getElementById('ai-prompt-input');
-            const newAiMessageDiv = renderAIPlaceholder(chatDisplay);
-            if (typeof this.handleAPISubmission === 'function') {
-                 await this.handleAPISubmission(promptForRegeneration, newAiMessageDiv, textareaElement);
-                 console.log('[Chat][Delete] Regeneration submission initiated.');
-            } else {
-                 console.error('[Chat][Delete] handleAPISubmission function not found on ChatManager.');
-                 renderChatError('Failed to start regeneration.', chatDisplay);
-            }
-        } else {
-             console.log('[Chat][Delete] No regeneration needed or prompt not found.');
-        }
-        await this.fetchAndUpdateCreditsDisplay();
-
-    } catch (error) {
-        console.error('[Chat][Delete] Error during message deletion process:', error);
-        alert(`Error deleting message: ${error.message}`);
-    }
-  },
-
-// static/chat.js (Inside ChatManager object)
 
 _performFullscreenToggle() {
   // Check the global flag
@@ -676,9 +426,170 @@ _performFullscreenToggle() {
 
   }, // End _syncUIWithState
 
+  /**
+   * Initiates the setup process for a NEW chat context.
+   * Clears current state and loads the first step into the modal.
+   */
+  async startNewChatContextSetup() {
+    console.log('[Chat Context] Starting NEW context setup.');
+    this.currentConversationId = null; // Signal it's a new chat
+
+    const chatDisplay = document.getElementById('chat-message-list');
+    const modifyContextControls = document.getElementById('chat-context-controls');
+    const activeContextDisplay = document.getElementById('active-context-display');
+    const modalContentArea = document.getElementById('modal-content-area');
+    const modalElement = document.getElementById('contextModal');
+    const sidebarList = document.getElementById('conversation-list'); // To remove 'active' class
+
+    // Clear UI elements related to current chat
+    if (chatDisplay) chatDisplay.innerHTML = '<p class="text-muted small text-center">Setting up new adventure context...</p>';
+    if (modifyContextControls) modifyContextControls.style.display = 'none';
+    if (activeContextDisplay) activeContextDisplay.innerHTML = '';
+    if (sidebarList) { // Deactivate sidebar item
+      sidebarList.querySelectorAll('li.active').forEach(li => li.classList.remove('active'));
+  }
+
+    if (!modalContentArea || !modalElement) {
+        console.error('[Chat Context] Modal content area or modal element not found!');
+        alert('Error: Cannot open context setup.');
+        return;
+    }
+
+    // Show loading state in modal
+    modalContentArea.innerHTML = `
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+            <p class="mt-2 text-muted small">Loading Setup...</p>
+        </div>`;
+
+    // Get modal instance (cache it if not already done)
+    if (!this.contextModalInstance) {
+        this.contextModalInstance = new bootstrap.Modal(modalElement);
+    }
+    // Note: data-bs-toggle on the button will show the modal, we just load content.
+
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    if (!token) {
+        modalContentArea.innerHTML = `<div class="alert alert-danger m-3">Authentication required to set context.</div>`;
+        return;
+    }
+
+    try {
+        if (window.htmx) {
+             console.log('[Chat Context] Triggering HTMX GET for /api/v1/chat/setup/start');
+             // Use htmx.ajax to manually trigger request and swap
+             htmx.ajax('GET', '/api/v1/chat/setup/start', {
+                 target: '#modal-content-area',
+                 swap: 'innerHTML',
+                 headers: { 'Authorization': `Bearer ${token}` }
+             });
+        } else {
+            throw new Error("HTMX library not found.");
+        }
+    } catch (error) {
+        console.error('[Chat Context] Error fetching start fragment:', error);
+        modalContentArea.innerHTML = `<div class="alert alert-danger m-3">Failed to load setup. Please try again.</div>`;
+    }
+  },
+
+  /**
+   * Initiates editing for the CURRENT chat context via modal.
+   */
+  async editCurrentChatContext() {
+    console.log('[Chat Context] Starting EDIT context setup for conversation:', this.currentConversationId);
+    if (!this.currentConversationId) {
+        alert('No active chat selected to edit context for.');
+        return;
+    }
+
+    const modalContentArea = document.getElementById('modal-content-area');
+    const modalElement = document.getElementById('contextModal');
+
+    if (!modalContentArea || !modalElement) {
+        alert('Error: Cannot open context setup.');
+        return;
+    }
+
+    // Show loading state
+    modalContentArea.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted small">Loading Existing Context...</p></div>`;
+
+    // Get/cache modal instance
+    if (!this.contextModalInstance) {
+        this.contextModalInstance = new bootstrap.Modal(modalElement);
+    }
+    // Bootstrap attributes handle showing modal
+
+    const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+    if (!token) {
+        modalContentArea.innerHTML = `<div class="alert alert-danger m-3">Authentication required.</div>`;
+        return;
+    }
+
+    try {
+         if (window.htmx) {
+             console.log(`[Chat Context] Triggering HTMX GET for /api/v1/chat/setup/edit/${this.currentConversationId}`);
+             htmx.ajax('GET', `/api/v1/chat/setup/edit/${this.currentConversationId}`, {
+                 target: '#modal-content-area',
+                 swap: 'innerHTML',
+                 headers: { 'Authorization': `Bearer ${token}` }
+             });
+         } else {
+            throw new Error("HTMX library not found.");
+         }
+    } catch (error) {
+        console.error('[Chat Context] Error fetching edit fragment:', error);
+        modalContentArea.innerHTML = `<div class="alert alert-danger m-3">Failed to load context for editing.</div>`;
+    }
+  },
+
+   /**
+    * Updates the display area below the chat input with context badges.
+    * @param {object} contextData The context object from the backend.
+    */
+   updateActiveContextDisplay(contextData) {
+       const displayArea = document.getElementById('active-context-display');
+       if (!displayArea) return;
+       console.log("[Chat Context] Updating context display with:", contextData);
+
+       displayArea.innerHTML = ''; // Clear previous
+
+       if (!contextData || Object.keys(contextData).length === 0) {
+           displayArea.innerHTML = '<span class="text-muted small fst-italic">Default Context</span>';
+           return;
+       }
+
+       const badges = [];
+       const displayMap = { // Customize labels/icons/order
+           goal: { label: "Goal", icon: "bi-bullseye" },
+           genre_tone: { label: "Genre/Tone", icon: "bi-masks" },
+           game_system: { label: "System", icon: "bi-dpad-fill" },
+           key_details: { label: "Details", icon: "bi-info-circle", truncate: 30 } // Optional truncation
+       };
+
+       for (const key in displayMap) {
+           if (contextData[key]) {
+               let value = contextData[key];
+               const config = displayMap[key];
+               // Simple formatting for goal
+               if (key === 'goal') value = value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+               // Truncate if needed
+               const titleAttr = config.truncate && value.length > config.truncate ? `title="${escapeHtml(value)}"` : '';
+               if (config.truncate && value.length > config.truncate) {
+                   value = value.substring(0, config.truncate - 3) + "...";
+               }
+               badges.push(`<span class="badge lh-base text-bg-secondary bg-opacity-25 me-1 mb-1" ${titleAttr}><i class="bi ${config.icon} me-1"></i>${escapeHtml(value)}</span>`);
+           }
+       }
+
+       if (badges.length > 0) {
+           displayArea.innerHTML = badges.join('');
+       } else {
+           // If contextData exists but has no *displayable* keys
+           displayArea.innerHTML = '<span class="text-muted small fst-italic">Context Set (No Preview)</span>';
+       }
+   },
 
 
- // static/chat.js (Inside ChatManager object)
 
   /**
    * Set up all event listeners for chat UI elements.
@@ -690,6 +601,8 @@ _performFullscreenToggle() {
       const promptInput = document.getElementById('ai-prompt-input');
       const normalZoomBtn = document.getElementById(CHAT_ZOOM_TOGGLE_NORMAL_ID);
       const fullscreenZoomBtn = document.getElementById(CHAT_ZOOM_TOGGLE_FULLSCREEN_ID);
+      const newChatButton = document.getElementById('new-conversation-btn');
+      const modifyContextButton = document.getElementById('modify-context-button');
 
       // --- Prompt Input Listeners ---
       if (promptInput) {
@@ -767,9 +680,63 @@ _performFullscreenToggle() {
           });
       } else { console.warn("[Chat Events] Chat form element not found."); }
 
-       console.log("[Chat Events] All chat event listeners setup completed.");
+      // --- NEW: HTMX Event Listeners (for modal save response) ---
+      console.log("[Chat Events] Setting up HTMX response listeners.");
+      document.body.addEventListener('htmx:afterOnLoad', (event) => {
+          // General listener, check if response came from our save endpoint
+          const xhr = event.detail.xhr;
+          if (xhr && xhr.responseURL && xhr.responseURL.includes('/api/v1/chat/setup/save')) {
+              console.log('[Chat HTMX] Detected response likely from /save endpoint.');
+              // Check for custom triggers in the response headers
+              const triggerHeader = xhr.getResponseHeader('HX-Trigger');
+              if (triggerHeader) {
+                  console.log('[Chat HTMX] Found HX-Trigger header:', triggerHeader);
+                  try {
+                      const triggers = JSON.parse(triggerHeader);
+                      if (triggers.newChatCreated) {
+                        console.log('[Chat HTMX] Handling newChatCreated trigger:', triggers.newChatCreated);
+                        const { id, title, context } = triggers.newChatCreated;
+                        if (ChatManager.contextModalInstance) ChatManager.contextModalInstance.hide(); // Hide modal first
+                        ChatManager.currentConversationId = id; // Set the new ID
+                        ChatManager.renderSidebarConversations(); // Refresh sidebar
+                        // Load empty state BUT ensure context display/modify button shown
+                        const chatDisplay = document.getElementById('chat-message-list');
+                        if(chatDisplay) chatDisplay.innerHTML = ''; // Clear loading/setup message
+                        renderMessage('ai', `Context set for "${escapeHtml(title)}". What's your first prompt?`, chatDisplay);
+                        ChatManager.updateActiveContextDisplay(context); // Show context badges
+                        const modifyBtn = document.getElementById('chat-context-controls');
+                        if(modifyBtn) modifyBtn.style.display = 'flex'; // Show modify button
+                        scrollToBottom('ai-result-output', false);
+                        // Maybe focus input?
+                        document.getElementById('ai-prompt-input')?.focus();
+
+                    // --- Handle chatContextUpdated ---
+                    } else if (triggers.chatContextUpdated) {
+                        console.log('[Chat HTMX] Handling chatContextUpdated trigger:', triggers.chatContextUpdated);
+                        const { id, context } = triggers.chatContextUpdated;
+                        if (ChatManager.contextModalInstance) ChatManager.contextModalInstance.hide(); // Hide modal
+                        // Only update context display if it matches current chat
+                         if (id === ChatManager.currentConversationId) {
+                              ChatManager.updateActiveContextDisplay(context);
+                              // Optional: Show a success toast/message
+                              console.log(`[Chat Context] Context updated for conversation ${id}`);
+                         }
+                    }
+                } catch (e) {
+                    console.error('[Chat HTMX] Error parsing HX-Trigger JSON:', e);
+                     if (ChatManager.contextModalInstance) ChatManager.contextModalInstance.hide(); // Hide modal on error too
+                }
+            } else {
+                 console.warn('[Chat HTMX] Response from /save (204) but no HX-Trigger header found.');
+                 // Close modal as a fallback on successful save
+                 if (ChatManager.contextModalInstance) ChatManager.contextModalInstance.hide();
+            }
+        } // End check for /save endpoint
+    }); // End htmx:afterOnLoad listener
+
+      console.log("[Chat Events] All event listeners setup completed.");
     }); // End DOMContentLoaded
-  },
+  }, // End setupEventListeners
 
   /**
    * Helper function to add a delete button and its listener to a message element.

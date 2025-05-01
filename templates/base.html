@@ -87,14 +87,50 @@
     
     </div>
 
+        <!-- === ADVENTURE CONTEXT MODAL === -->
+        <div class="modal fade" id="contextModal" tabindex="-1" aria-labelledby="contextModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"> {# Added scrollable #}
+              <div class="modal-content text-light" style="background-color: var(--color-bg-medium); border: 1px solid var(--color-border);"> {# Use CSS vars #}
+                <div class="modal-header" style="border-bottom: 1px solid var(--color-border);">
+                  <h5 class="modal-title" id="contextModalLabel"><i class="bi bi-compass me-2 text-primary"></i> Set Adventure Context</h5>
+                  {# Add a close button for cancelling edits or if setup fails #}
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0" id="modal-content-area"> {# Remove default padding #}
+                  <!-- HTMX content will load here -->
+                  <div class="text-center p-5"> {# Loading state #}
+                      <div class="spinner-border text-primary" role="status">
+                          <span class="visually-hidden">Loading...</span>
+                      </div>
+                      <p class="mt-2 text-muted small">Loading Setup...</p>
+                  </div>
+                </div>
+                {# Footer is now rendered INSIDE the fragments loaded into modal-content-area #}
+              </div>
+            </div>
+          </div>
+          <!-- === END MODAL === -->
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHmsJYHxX6KhROPFPz7UPALzADgNXA/BmUH7grwhAPg" crossorigin="anonymous"></script>
     <script>
         AOS.init({
             duration: 800,
             offset: 100,
             once: true,
             easing: 'ease-out-sine'
+        });
+        // Add event listener for HTMX errors (optional but helpful)
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            console.error("HTMX Response Error:", evt.detail.xhr);
+            // You could display a generic error message to the user here
+            // Maybe target a specific error div: htmx.find('#htmx-error-display').innerText = 'Request failed.'
+            alert('An error occurred. Please try again.'); // Simple alert
+        });
+         document.body.addEventListener('htmx:sendError', function(evt) {
+            console.error("HTMX Send Error:", evt.detail.error);
+            alert('Could not send request. Check network connection.');
         });
     </script>
 

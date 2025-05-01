@@ -117,7 +117,13 @@
                     {# Default message, JS might change this or hide it #}
                     Please <a href="#" data-action="login" class="link-primary">Login or Sign Up</a> to use the AI tools.
                 </p>
-
+                <div class="d-flex justify-content-end p-2 border-bottom border-secondary" id="chat-context-controls" style="display: none;">
+                    <button id="modify-context-button" type="button" class="btn btn-sm btn-outline-secondary"
+                            data-bs-toggle="modal" data-bs-target="#contextModal"
+                            onclick="ChatManager.editCurrentChatContext()">
+                        <i class="bi bi-gear-fill me-1"></i> Modify Context
+                    </button>
+               </div>
                  {# Chat Area Container - Always rendered, visibility controlled by JS #}
                  <div id="chat-interface-container" class="d-none"> {# Initially hidden by d-none #}
 
@@ -127,7 +133,11 @@
                          <div id="chat-fullscreen-sidebar" class="d-none"> 
                              <div class="conversation-sidebar-header d-flex justify-content-between align-items-center">
                                 <span>Conversations</span>
-                                <button id="new-conversation-btn" class="btn btn-sm btn-link p-0 ms-2" title="New Conversation"><i class="bi bi-plus-circle"></i></button>
+                                <button id="new-conversation-btn" type="button" class="btn btn-sm btn-secondary w-100 mb-2"
+                                        data-bs-toggle="modal" data-bs-target="#contextModal"
+                                        onclick="ChatManager.startNewChatContextSetup()">
+                                    <i class="bi bi-plus-lg"></i> New Conversation
+                                </button>
                             </div>
                             <ul id="conversation-list" class="conversation-list"></ul>
                          </div>
