@@ -152,7 +152,6 @@ async def read_root(
 from routers.conversations import router as conversations_router
 from routers.user import router as user_router
 from routers.payments import router as payments_router
-from routers.ai import router as ai_router
 from services.db_service import get_or_create_db_user
 from routers.chat_setup import router as chat_setup_router
 # Remove the problematic import below

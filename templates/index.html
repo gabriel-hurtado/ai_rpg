@@ -134,10 +134,14 @@
                              <div class="conversation-sidebar-header d-flex justify-content-between align-items-center">
                                 <span>Conversations</span>
                                 <button id="new-conversation-btn" type="button" class="btn btn-sm btn-secondary w-100 mb-2"
-                                        data-bs-toggle="modal" data-bs-target="#contextModal"
-                                        onclick="ChatManager.startNewChatContextSetup()">
-                                    <i class="bi bi-plus-lg"></i> New Conversation
-                                </button>
+                                data-bs-toggle="modal"          
+                                data-bs-target="#contextModal"   
+                                hx-get="/api/v1/chat/setup/start" 
+                                hx-target="#modal-content-area"    
+                                hx-trigger="click"              
+                                > 
+                            <i class="bi bi-plus-lg"></i> New Conversation
+                        </button>
                             </div>
                             <ul id="conversation-list" class="conversation-list"></ul>
                          </div>

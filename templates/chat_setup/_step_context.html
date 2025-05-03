@@ -6,12 +6,13 @@
     <div class="modal-nav flex-shrink-0 pe-3 me-3 border-end border-secondary" style="width: 180px;">
         <p class="text-muted small mb-2 fw-bold text-uppercase">CONTEXT</p>
         <nav class="nav flex-column nav-pills">
-             <button type="button" class="nav-link text-start mb-1"
-                    hx-get="/api/v1/chat/setup/fragment?section=goal"
-                    hx-target="#modal-step-content"
-                    hx-include="closest form">
-                <i class="bi bi-bullseye me-2"></i>Goal
-            </button>
+ <!-- templates/chat_setup/_step_context.html (Sidebar Button) -->
+ <button type="button" class="nav-link text-start mb-1"
+         hx-get="/api/v1/chat/setup/fragment?section=goal"
+         hx-target="#modal-content-area"
+         hx-include="#context-setup-form" > <!-- CHANGE to ID selector -->
+     <i class="bi bi-bullseye me-2"></i>Goal
+ </button>
              <button type="button" class="nav-link active text-start mb-1" aria-current="page" disabled> {# Active & Disabled #}
                 <i class="bi bi-pencil-square me-2"></i>Context Details
             </button>
@@ -70,5 +71,10 @@
                 </button>
             </div>
         </form> {# End form #}
+
+        <!-- Add this script block preferably at the end of your base HTML file, before the closing </body> tag -->
+<!-- OR include it in your main site JavaScript file (e.g., static/js/app.js) -->
+
+
     </div> {# End step content #}
 </div> {# End d-flex #}

@@ -122,9 +122,9 @@ async function updateUI() {
   const isLoggedIn = await fetchCombinedUserInfo(false);
   const hasCredit = checkCreditValidity();
 
-  // Call imported UI functions, passing necessary state
-  updateNavbarUI(isLoggedIn, currentUserInfo.propelUserInfo, currentUserInfo.dbUserData, authUrl); // Pass authUrl
+  updateNavbarUI(isLoggedIn, currentUserInfo.propelUserInfo, currentUserInfo.dbUserData, authUrl);
   updateToolAccessUI(isLoggedIn, hasCredit);
+  // This call now uses the corrected logic inside handleChatInitialization
   handleChatInitialization(isLoggedIn, hasCredit);
 }
 
@@ -135,34 +135,48 @@ async function updateUI() {
  * @param {boolean} hasCredit - Whether the user has valid credits.
  */
 function handleChatInitialization(isLoggedIn, hasCredit) {
+  const chatManagerInstance = window.ChatManager; // Get the instance once
+
   if (isLoggedIn && hasCredit) {
-    const initializeChatFunction = window.ChatManager?.initializeChat;
-    if (typeof initializeChatFunction === 'function') {
-      console.log('[Auth] Conditions met, initializing chat.');
+    // Check if the instance and the method exist
+    if (chatManagerInstance && typeof chatManagerInstance.initializeChat === 'function') {
+      console.log('[Auth] Conditions met, checking initialization status.');
       try {
-        if (window.ChatManager && !window.ChatManager.chatInitialized) {
-          initializeChatFunction();
+        // Check the flag ON THE INSTANCE
+        if (!chatManagerInstance.chatInitialized) {
+          console.log('[Auth] Initializing chat...');
+          // Call the method DIRECTLY ON THE INSTANCE
+          chatManagerInstance.initializeChat(); // Correct call
         } else {
           console.log('[Auth] ChatManager indicates chat already initialized, skipping call.');
         }
       } catch (error) {
-        console.error('[Auth] Error during ChatManager.initializeChat():', error);
+        // Catch errors specifically from the initializeChat call
+        console.error('[Auth] Error during ChatManager.initializeChat() execution:', error);
       }
     } else {
-      console.warn('[Auth] ChatManager.initializeChat function not found or not ready.');
+      // Log if ChatManager or its method isn't ready
+      console.warn('[Auth] window.ChatManager or window.ChatManager.initializeChat not found or not ready.');
     }
   } else {
+    // Handle teardown
     console.log('[Auth] Conditions not met for chat initialization (isLoggedIn:', isLoggedIn, 'hasCredit:', hasCredit, ')');
-    const teardownChatFunction = window.ChatManager?.teardownChat;
-    if (typeof teardownChatFunction === 'function') {
-      if (window.ChatManager && window.ChatManager.chatInitialized) {
+    // Check if the instance and the method exist
+    if (chatManagerInstance && typeof chatManagerInstance.teardownChat === 'function') {
+      // Check the flag ON THE INSTANCE before tearing down
+      if (chatManagerInstance.chatInitialized) {
         console.log('[Auth] Tearing down chat.');
         try {
-          teardownChatFunction();
+          // Call the method DIRECTLY ON THE INSTANCE
+          chatManagerInstance.teardownChat(); // Correct call
         } catch (error) {
           console.error('[Auth] Error tearing down chat:', error);
         }
+      } else {
+          console.log('[Auth] Chat not initialized, no teardown needed.'); // Optional log
       }
+    } else {
+        console.warn('[Auth] window.ChatManager or window.ChatManager.teardownChat not found.'); // Optional log
     }
   }
 }

@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 from database import get_session
 from models import User, Conversation
 from main import PropelUser
-from services.auth_service import safe_require_user 
+from services.auth_service import safe_require_user
 from services.db_service import get_or_create_db_user
 # Import AI service function and base prompt
 from services.ai_service import generate_system_prompt_from_context, BASE_SYSTEM_PROMPT
@@ -24,7 +24,7 @@ from main import templates
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/v1/chat/setup",
+    prefix="/chat/setup",
     tags=["Chat Context Setup"],
     dependencies=[Depends(safe_require_user)] # Protect all setup routes
 )
@@ -46,6 +46,7 @@ DEFAULT_CONTEXT = {
 
 # --- Endpoints ---
 
+# ... (get_setup_start, get_setup_fragment, get_setup_for_edit remain the same) ...
 @router.get("/start", response_class=HTMLResponse)
 async def get_setup_start(request: Request, user: PropelUser = Depends(safe_require_user)):
     """Returns the initial HTML fragment for Step 1 (Goal)."""
@@ -70,6 +71,18 @@ async def get_setup_fragment(
     # Reconstruct context from query parameters
     current_context = dict(request.query_params)
     current_context.pop("section", None)
+
+    # --- Handle 'other' goal ---
+    # If goal is 'other', use goal_other_text if present, otherwise keep 'other'
+    if current_context.get("goal") == "other":
+        other_text = current_context.pop("goal_other_text", "").strip()
+        if other_text:
+            current_context["goal"] = other_text # Replace 'other' with actual text
+        # else: keep goal='other' (maybe show validation later?)
+    else:
+        # Ensure goal_other_text is not passed if goal isn't 'other'
+        current_context.pop("goal_other_text", None)
+    # -------------------------
 
     # Merge with defaults to ensure all keys exist for the template
     context_to_pass = DEFAULT_CONTEXT.copy()
@@ -115,13 +128,18 @@ async def get_setup_for_edit(
     template_name = f"chat_setup/{SETUP_SECTIONS['goal']}"
     return templates.TemplateResponse(template_name, {"request": request, "context": context_to_pass})
 
-@router.post("/save", status_code=204)
+
+@router.post("/save", status_code=204) # Keep 204 No Content
 async def save_setup_context(
     request: Request,
     user: PropelUser = Depends(safe_require_user),
     db: Session = Depends(get_session)
 ):
-    """Saves context, generates system prompt via AI, creates/updates Conversation."""
+    """
+    Saves context, generates system prompt via AI, creates/updates Conversation.
+    On success, returns 204 No Content with HX-Trigger header to update UI
+    and close the modal.
+    """
     form_data = await request.form()
     form_dict = {k: form_data.getlist(k)[-1] for k in form_data.keys()}
     logger.info(f"User {user.user_id}: POST /save context data.")
@@ -132,6 +150,26 @@ async def save_setup_context(
 
     conversation_id_str = form_dict.pop("conversation_id", None)
     conversation_id = int(conversation_id_str) if conversation_id_str and conversation_id_str.isdigit() else None
+
+    # --- Handle 'other' goal text ---
+    goal = form_dict.get("goal")
+    if goal == "other":
+        other_goal_text = form_dict.pop("goal_other_text", "").strip()
+        if other_goal_text:
+            form_dict["goal"] = other_goal_text # Use the text as the actual goal
+        else:
+            # Decide how to handle empty 'other' text.
+            # Option 1: Default to something generic
+            # form_dict["goal"] = "General Chat"
+            # Option 2: Raise validation error (requires changing status code/response)
+            # raise HTTPException(status_code=400, detail="Please specify your goal when selecting 'Other'.")
+            # Option 3: Remove goal if empty (might cause issues downstream)
+            form_dict.pop("goal", None)
+            logger.warning("Goal was 'other' but no text provided. Goal not saved.")
+    else:
+        # Ensure goal_other_text is removed if goal wasn't 'other'
+        form_dict.pop("goal_other_text", None)
+    # --------------------------------
 
     # Define the keys we expect and want to save
     context_keys = ["goal", "genre_tone", "game_system", "key_details"]
@@ -150,8 +188,7 @@ async def save_setup_context(
         effective_system_prompt = BASE_SYSTEM_PROMPT # Fallback
         logger.warning("AI system prompt generation failed or context was empty. Using only base system prompt.")
 
-    headers = {}
-    session_info = {}
+    trigger_payload = {} # Initialize empty dictionary for HX-Trigger
 
     try:
         if conversation_id: # --- Editing ---
@@ -166,7 +203,11 @@ async def save_setup_context(
             db.commit()
             logger.info(f"Successfully updated context/prompt for conversation {conversation_id}.")
             session_info = {"id": conversation.id, "context": saved_context}
-            headers["HX-Trigger"] = json.dumps({"chatContextUpdated": session_info})
+            # Prepare trigger data
+            trigger_payload = {
+                "chatContextUpdated": session_info,
+                "closeModal": True # Add the close trigger
+            }
 
         else: # --- Creating ---
             logger.info(f"Creating new conversation with context for user {db_user.id}")
@@ -185,9 +226,15 @@ async def save_setup_context(
             db.refresh(new_conversation)
             logger.info(f"Successfully created new conversation {new_conversation.id} with title '{new_title}'.")
             session_info = {"id": new_conversation.id, "title": new_conversation.title, "context": saved_context}
-            headers["HX-Trigger"] = json.dumps({"newChatCreated": session_info})
+            # Prepare trigger data
+            trigger_payload = {
+                "newChatCreated": session_info,
+                "closeModal": True # Add the close trigger
+            }
 
-        return Response(status_code=204, headers=headers)
+        # Set headers AFTER potentially modifying trigger_payload
+        headers = {"HX-Trigger": json.dumps(trigger_payload)}
+        return Response(status_code=204, headers=headers) # Return 204 with headers
 
     except HTTPException:
          db.rollback(); raise # Re-raise known HTTP errors

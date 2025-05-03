@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 # Combine routers conceptually - prefix covers both /conversations and /chat
 router = APIRouter(
-    prefix="/api/v1", # Use a common API prefix
     tags=["Chat & Conversations"],
     dependencies=[Depends(safe_require_user)] # Protect most routes by default
 )
@@ -223,7 +222,7 @@ async def chat_message_stream(
                 ai_stream = call_google_ai_stream(
                     prompt=prompt,
                     history=formatted_history,
-                    system_prompt_override=effective_system_prompt # Pass the combined/override prompt
+                    system_prompt_override_instructions=effective_system_prompt # Pass the combined/override prompt
                 )
 
                 async for chunk in ai_stream:

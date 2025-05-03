@@ -11,8 +11,8 @@
             </button>
             <button type="button" class="nav-link text-start mb-1"
                     hx-get="/api/v1/chat/setup/fragment?section=context"
-                    hx-target="#modal-step-content"
-                    hx-include="closest form">
+                    hx-target="#modal-content-area"
+                    hx-include="#context-setup-form" >
                 <i class="bi bi-pencil-square me-2"></i>Context Details
             </button>
             {# Add other nav items if you break down context further #}
@@ -33,16 +33,33 @@
             <h6 class="mb-3 fw-bold"><i class="bi bi-bullseye me-2"></i>Primary Goal</h6>
             <div class="mb-3">
                 <label for="context-goal" class="form-label small text-muted">What kind of content do you primarily want to generate?</label>
-                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="context-goal" name="goal" required>
-                    {# Use context.get() for safer access and default selection #}
-                    <option value="describe_location" {% if context.get('goal') == 'describe_location' %}selected{% endif %}>Describe Location/Scene</option>
-                    <option value="create_npc" {% if context.get('goal') == 'create_npc' %}selected{% endif %}>Create NPC</option>
-                    <option value="create_monster" {% if context.get('goal') == 'create_monster' %}selected{% endif %}>Create Monster</option>
-                    <option value="create_item" {% if context.get('goal') == 'create_item' %}selected{% endif %}>Create Magic Item</option>
-                    <option value="create_encounter" {% if context.get('goal') == 'create_encounter' %}selected{% endif %}>Design Encounter/Plot Hook</option>
-                    <option value="refine_text" {% if context.get('goal') == 'refine_text' %}selected{% endif %}>Refine Existing Text</option>
-                    <option value="charsheet" {% if context.get('goal') == 'charsheet' %}selected{% endif %}>Generate Character Sheets</option>
+                {% set current_goal = context.get('goal', '') %}
+                {% set predefined_goals = ['describe_location', 'create_npc', 'create_monster', 'create_item', 'create_encounter', 'refine_text', 'charsheet'] %}
+                {% set is_other_selected = current_goal and current_goal not in predefined_goals %}
+
+                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="context-goal" name="goal" required
+                        onchange="toggleOtherGoal(this.value)">
+                    {# Add a default empty option if desired, otherwise the first is selected by default #}
+                    {# <option value="" {% if not current_goal %}selected{% endif %} disabled>Select a goal...</option> #}
+                    <option value="describe_location" {% if current_goal == 'describe_location' %}selected{% endif %}>Describe Location/Scene</option>
+                    <option value="create_npc" {% if current_goal == 'create_npc' %}selected{% endif %}>Create NPC</option>
+                    <option value="create_monster" {% if current_goal == 'create_monster' %}selected{% endif %}>Create Monster</option>
+                    <option value="create_item" {% if current_goal == 'create_item' %}selected{% endif %}>Create Magic Item</option>
+                    <option value="create_encounter" {% if current_goal == 'create_encounter' %}selected{% endif %}>Design Encounter/Plot Hook</option>
+                    <option value="refine_text" {% if current_goal == 'refine_text' %}selected{% endif %}>Refine Existing Text</option>
+                    <option value="charsheet" {% if current_goal == 'charsheet' %}selected{% endif %}>Generate Character Sheets</option>
+                    <option value="other" {% if is_other_selected %}selected{% endif %}>Other (Please specify)</option> {# Add "Other" option #}
                 </select>
+            </div>
+
+            {# --- Input for "Other" Goal (Initially Hidden) --- #}
+            <div class="mb-3 {% if not is_other_selected %}d-none{% endif %}" id="other-goal-wrapper"> {# Hide if not initially selected #}
+                <label for="context-goal-other-text" class="form-label small text-muted">Specify your goal:</label>
+                <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary"
+                       id="context-goal-other-text"
+                       name="goal_other_text"
+                       placeholder="e.g., Brainstorm quest ideas"
+                       value="{{ current_goal if is_other_selected else '' }}"> {# Pre-fill if needed #}
             </div>
 
             {# --- Footer Buttons within the fragment --- #}
@@ -57,5 +74,37 @@
                  </button>
             </div>
         </form> {# End form #}
+
+        {# Inline script to handle the toggle logic. Could be moved to a separate JS file. #}
+        <script>
+            function toggleOtherGoal(selectedValue) {
+                const otherWrapper = document.getElementById('other-goal-wrapper');
+                const otherInput = document.getElementById('context-goal-other-text');
+                if (selectedValue === 'other') {
+                    otherWrapper.classList.remove('d-none'); // Show the wrapper
+                    // Optional: Focus the input when it becomes visible
+                    // otherInput.focus();
+                } else {
+                    otherWrapper.classList.add('d-none'); // Hide the wrapper
+                    otherInput.value = ''; // Clear the input when hiding
+                }
+            }
+
+            // Ensure the initial state is correct when the fragment loads
+            // (This is mainly handled by Jinja adding/removing d-none initially,
+            // but this ensures consistency if the JS runs after initial render)
+            document.addEventListener('DOMContentLoaded', function() {
+                 const initialValue = document.getElementById('context-goal').value;
+                 // No need to call toggleOtherGoal here if Jinja handles initial class
+                 // toggleOtherGoal(initialValue);
+            });
+
+            // If using htmx and swapping content, you might need to re-run
+            // the initial check *after* the swap if Jinja isn't sufficient.
+            // However, the Jinja logic should handle the initial state correctly
+            // upon loading the fragment. The onchange handler covers user interaction.
+
+        </script>
+
     </div> {# End step content #}
 </div> {# End d-flex #}

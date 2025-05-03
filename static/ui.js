@@ -13,6 +13,7 @@ const AI_PROMPT_INPUT_ID = 'ai-prompt-input';
 const AI_GENERATE_BUTTON_ID = 'ai-generate-button';
 const TOOL_ACCESS_PROMPT_ID = 'tool-access-prompt';
 const CHAT_INTERFACE_CONTAINER_ID = 'chat-interface-container';
+const CHAT_CONTEXT_CONTROLS_ID = 'chat-context-controls'; // <-- New constant
 // --- Use ChatManager's constants for zoom buttons if needed elsewhere ---
 // const CHAT_ZOOM_TOGGLE_NORMAL_ID = 'chat-zoom-toggle-normal'; // Defined in chat.js
 // const CHAT_ZOOM_TOGGLE_FULLSCREEN_ID = 'chat-zoom-toggle-fullscreen'; // Defined in chat.js
@@ -75,6 +76,7 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
   const aiGenerateButton = document.getElementById(AI_GENERATE_BUTTON_ID);
   const accessPrompt = document.getElementById(TOOL_ACCESS_PROMPT_ID);
   const chatContainer = document.getElementById(CHAT_INTERFACE_CONTAINER_ID);
+  const chatContextControls = document.getElementById(CHAT_CONTEXT_CONTROLS_ID); // <-- Get the element
 
   const canUseAI = isLoggedIn && hasCredit;
 
@@ -161,6 +163,23 @@ export function updateToolAccessUI(isLoggedIn, hasCredit) {
   } else {
     console.warn(`[UI] Chat container #${CHAT_INTERFACE_CONTAINER_ID} not found.`);
   }
+
+  // --- ADDED: Hide/Show Context Controls ---
+  if (chatContextControls) {
+    if (!canUseAI) {
+      console.log(`[UI] Hiding chat context controls.`);
+      chatContextControls.style.display = 'none';
+    }
+    else {
+      console.log(`[UI] Showing chat context controls.`);
+      chatContextControls.style.display = 'flex';
+    }
+     } else {
+    // It's okay if this isn't found initially, chat.js manages it later when loading a convo
+    // console.warn(`[UI] Chat context controls #${CHAT_CONTEXT_CONTROLS_ID} not found during UI update.`);
+  }
+  // --- End Added ---
+
 
   if (accessPrompt) {
     accessPrompt.classList.toggle('d-none', canUseAI);
