@@ -9,22 +9,25 @@ logger = logging.getLogger(__name__)
 
 # --- Base System Prompt (Default Instructions) ---
 BASE_SYSTEM_PROMPT = """You are "Adventure Forge AI", a creative partner for Tabletop Roleplaying Game GMs.
+Your goal is to help Game Masters (GMs) build their unique homebrew worlds.
 Generate imaginative, detailed, and useful TTRPG content (locations, NPCs, items, monsters, plot hooks, etc.).
-Be descriptive, provide actionable details, maintain a helpful tone, and use Markdown formatting."""
+Be descriptive, provide actionable details, maintain a helpful, collaborative, and inspiring tone.
+Avoid clichés where possible unless requested. Format your output using Markdown for readability."""
 
 # --- Google AI Configuration ---
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 google_ai_configured = False
-ai_model_name =  os.getenv("GOOGLE_GENERATIVE_AI_MODEL", "models/gemini-1.5-flash-latest")
 ai_model = None
+ai_model_name =  os.getenv("GOOGLE_GENERATIVE_AI_MODEL", "models/gemini-1.5-flash-latest")
 
 if GOOGLE_API_KEY:
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
+        # Initialize the main model used for chat streaming
+        # System instruction here acts as the ultimate fallback
         ai_model = genai.GenerativeModel(
             model_name=ai_model_name,
-            system_instruction=BASE_SYSTEM_PROMPT, # Corrected from SYSTEM_PROMPT
-            # generation_config=GenerationConfig(...) # Optional: configure temp, top_k etc.
+            system_instruction=BASE_SYSTEM_PROMPT,
         )
         google_ai_configured = True
         logger.info(f"Google AI Client Configured successfully with model: {ai_model.model_name}")
@@ -33,121 +36,115 @@ if GOOGLE_API_KEY:
 else:
     logger.warning("GOOGLE_API_KEY not found. AI features disabled.")
 
+# --- Function to Generate System Prompt Override via AI ---
 async def generate_system_prompt_from_context(context_data: Dict[str, Any]) -> str | None:
     """
-    Uses the AI to generate a tailored system prompt based on user-provided context.
-
-    Args:
-        context_data: Dictionary of context items (goal, genre, system, etc.).
-
-    Returns:
-        The generated system prompt string, or None if generation fails.
+    Uses the AI to generate a tailored system prompt override based on user context.
+    Returns the generated prompt string (intended to augment/focus the base prompt), or None on failure.
     """
-    if not google_ai_configured or not ai_model: # Use the same model or configure a separate fast one
+    if not google_ai_configured or not ai_model:
         logger.error("generate_system_prompt called but AI not configured.")
         return None
 
     if not isinstance(context_data, dict) or not context_data:
         logger.warning("generate_system_prompt called with empty or invalid context.")
-        return None # Return None, calling code should use BASE_SYSTEM_PROMPT
+        return None # No context, no override needed
 
     # --- Construct the Meta-Prompt ---
     meta_prompt_lines = [
-        "You are an expert system prompt generator.",
-        "Your task is to create a concise set of instructions (a system prompt) for another AI.",
-        "This other AI's primary purpose is to generate creative content for Tabletop Roleplaying Games (TTRPGs) based on user requests.",
-        "Analyze the following user-defined context for their current TTRPG creation session:",
+        "Analyze the user's TTRPG session context below.",
+        "Generate 1-3 concise sentences instructing an AI assistant on how to best generate content for this specific session.",
+        "These instructions should guide the AI to tailor its creative TTRPG content generation according to the user's specified context.",
+        "Focus on incorporating the Goal, Genre/Tone, Game System, and Key Details provided.",
+        "Output *only* the generated instructions, without any preamble like 'Okay, here are the instructions:'.",
+        "\n--- User Context ---",
     ]
+    # Dynamically add provided context items
+    if goal := context_data.get("goal"): meta_prompt_lines.append(f"- Primary Goal: User wants help with '{goal.replace('_',' ').title()}'.")
+    if genre := context_data.get("genre_tone"): meta_prompt_lines.append(f"- Genre/Tone: {genre}")
+    if system := context_data.get("game_system"): meta_prompt_lines.append(f"- Game System: {system}")
+    if details := context_data.get("key_details"): meta_prompt_lines.append(f"- Key Details/Request: {details}")
 
-    # Add context items clearly labelled
-    meta_prompt_lines.append("\n--- User Context ---")
-    if goal := context_data.get("goal"): meta_prompt_lines.append(f"- Primary Goal: Help user achieve '{goal.replace('_',' ').title()}'.")
-    if genre := context_data.get("genre"): meta_prompt_lines.append(f"- Genre/Tone: {genre}")
-    if system := context_data.get("system"): meta_prompt_lines.append(f"- Game System: {system} (If specific rules are mentioned, try to adhere to them).")
-    # Add other important context keys here dynamically
-    # e.g., if 'npc_role' exists: meta_prompt_lines.append(f"- NPC Focus: Role is '{context_data['npc_role']}'")
+    # Only proceed if there's actually some context to work with
+    if len(meta_prompt_lines) <= 6: # Only the instruction lines + header
+        logger.info("No specific context provided by user, no system prompt override needed.")
+        return None
 
-    meta_prompt_lines.append("\n--- Instructions for System Prompt ---")
-    meta_prompt_lines.append("Based *only* on the provided User Context, generate a short (2-4 sentences) paragraph that instructs the TTRPG AI.")
-    meta_prompt_lines.append("This instruction set should guide the TTRPG AI to tailor its responses according to the user's context.")
-    meta_prompt_lines.append("Focus on incorporating the Goal, Genre, and System (if provided) into the instructions.")
-    meta_prompt_lines.append("Start the output directly with the generated instructions. Do not include conversational text like 'Okay, here is the system prompt:'.")
-    meta_prompt_lines.append("Example Output Format: 'Focus on generating [Goal] content within a [Genre] setting, adhering to [System] rules where applicable. Maintain the specified tone.'")
-
+    meta_prompt_lines.append("\n--- Generated Instructions for AI Assistant (1-3 sentences max) ---")
     meta_prompt = "\n".join(meta_prompt_lines)
-    logger.debug(f"Meta-prompt for system prompt generation:\n{meta_prompt}")
+
+    logger.debug(f"Meta-prompt for system prompt generation:\n------\n{meta_prompt}\n------")
 
     # --- Call the AI (Non-Streaming) ---
     try:
-        # Use generate_content for a single response, maybe different config
-        # Consider lower temperature for more predictable system prompts
-        generation_config_sys_prompt = GenerationConfig(
-            temperature=0.5, # Lower temp for consistency
-            max_output_tokens=150 # Limit length
+        generation_config = GenerationConfig(
+            temperature=0.4, # Lower temp for more focused, instruction-like output
+            max_output_tokens=200 # Limit length
         )
-        # Use safety settings to block harmful content generation for the prompt itself
-        safety_settings_sys_prompt = {
-             HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-             HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-             HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-             HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-         }
+        # Standard safety settings
+        safety_settings = { H: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE for H in HarmCategory if H != HarmCategory.HARM_CATEGORY_UNSPECIFIED }
 
         response = await ai_model.generate_content_async(
             meta_prompt,
-            generation_config=generation_config_sys_prompt,
-            safety_settings=safety_settings_sys_prompt
-            )
+            generation_config=generation_config,
+            safety_settings=safety_settings
+        )
 
-        # Handle potential safety blocks or empty responses
         if not response.parts:
-             logger.warning(f"System prompt generation produced no parts (potentially blocked). Context: {context_data}")
-             # Check prompt_feedback for block reason if needed
-             # print(response.prompt_feedback)
+             logger.warning(f"System prompt gen blocked. Feedback: {response.prompt_feedback}. Context: {context_data}")
              return None
+
         generated_prompt = response.text.strip()
 
         if not generated_prompt:
             logger.warning(f"System prompt generation resulted in empty text. Context: {context_data}")
             return None
 
-        logger.info(f"Successfully generated system prompt override: '{generated_prompt[:100]}...'")
-        # Combine with BASE prompt? Or replace? Let's prepend to base for robustness.
-        # return BASE_SYSTEM_PROMPT + "\n\n## Session Focus:\n" + generated_prompt
-        # OR just return the generated part if it's meant to be comprehensive:
-        return generated_prompt # Returning only the AI generated part
+        # Return just the generated instructions. The caller will combine with BASE.
+        logger.info(f"Successfully generated system prompt override instruction: '{generated_prompt[:100]}...'")
+        return generated_prompt
 
     except Exception as e:
         logger.error(f"Error calling Google AI for system prompt generation: {e}", exc_info=True)
-        return None # Return None on error
+        return None
 
-
-# --- Google AI Streaming Helper ---
-async def call_google_ai_stream(prompt: str, history: list = None, session_system_prompt: str | None = None):
-    """Yields chunks of the AI response as they are produced using the Gemini API."""
+# --- Streaming Function ---
+async def call_google_ai_stream(
+    prompt: str,
+    history: List[Dict[str, Any]],
+    system_prompt_override_instructions: str | None = None # Accept override instructions
+) -> AsyncGenerator[str, None]:
+    """
+    Yields AI response chunks. Uses BASE_SYSTEM_PROMPT initialization but prepends
+    the override instructions to the history if provided.
+    """
     if not google_ai_configured or not ai_model:
-        logger.error("Google AI called but not configured.")
-        yield "Error: AI service is not configured."
-        return
+        yield "Error: AI service is not configured."; return
 
-    logger.info(f"Streaming AI request. History length: {len(history) if history else 0}. Prompt: '{prompt[:50]}...'")
+    # Combine Base + Override Instructions for this specific session's context injection
+    effective_system_prompt = BASE_SYSTEM_PROMPT
+    if system_prompt_override_instructions:
+        effective_system_prompt += "\n\n## Session Focus:\n" + system_prompt_override_instructions
+
+    logger.info(f"Streaming AI request. History len: {len(history)}. Using effective system prompt (len {len(effective_system_prompt)}). Prompt: '{prompt[:50]}...'")
+
+    # --- Prepare History with effective system prompt ---
+    current_history = []
+    # Inject the *entire* effective system prompt as the first instruction set
+    current_history.append({"role": "user", "parts": [{"text": f"[System Instructions For This Session]:\n{effective_system_prompt}"}]})
+    current_history.append({"role": "model", "parts": [{"text": "Understood. I will adhere to these instructions and my base role."}]})
+    current_history.extend(history) # Add the actual user/model chat history after instructions
+
     try:
-        # Format history for Gemini API
-        formatted_history = []
-        if history:
-            for msg in history:
-                role = msg.get("role")
-                content = msg.get("content")
-                if role and content:
-                    api_role = "model" if role == "assistant" else role
-                    formatted_history.append({"role": api_role, "parts": [{"text": content}]})
-
-        chat_session = ai_model.start_chat(history=formatted_history)
+        # Start chat WITH the prepared history
+        chat_session = ai_model.start_chat(history=current_history)
+        # Send only the latest user prompt
         response_stream = await chat_session.send_message_async(prompt, stream=True)
 
         async for chunk in response_stream:
-            if chunk.text:
+            if hasattr(chunk, 'text') and chunk.text:
                 yield chunk.text
+
     except Exception as e:
         logger.error(f"Error during Google AI streaming API call: {e}", exc_info=True)
-        yield f"Error: Could not connect to AI service ({type(e).__name__})."
+        yield f"\n\n**Error:** Could not get response from AI service ({type(e).__name__}). Please try again.**"

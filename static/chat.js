@@ -222,17 +222,21 @@ const ChatManager = {
   /**
    * Handle user message submission, call API, display streaming response.
    */
+    // --- CHAT INTERACTION ---
+
+  /**
+   * Handle user message submission, call API, display streaming response.
+   */
   async handleAPISubmission(userMessage, aiMessageDiv, textareaElement) {
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
     const generateButton = document.getElementById('ai-generate-button');
     const loadingIndicator = document.getElementById('ai-loading-indicator');
-    // Try to get the user message element reliably
     const userMessageElement = aiMessageDiv?.previousElementSibling;
 
     // --- Pre-flight Checks ---
+    // (Keep existing pre-flight checks)
     if (!aiMessageDiv || !textareaElement || !generateButton || !loadingIndicator) {
         console.error('[Chat][Submit] Critical UI elements missing.');
-        // Try to recover UI state if possible
         if(textareaElement) textareaElement.disabled = false;
         if(generateButton) generateButton.disabled = false;
         if(loadingIndicator) loadingIndicator.style.display = 'none';
@@ -249,96 +253,107 @@ const ChatManager = {
 
     // --- API Call and Streaming ---
     try {
-      const response = await sendChatMessage({ // Use API helper
+      const response = await sendChatMessage({
           prompt: userMessage,
           conversationId: this.currentConversationId,
           token
       });
 
       if (!response.ok) {
+          // (Keep existing error handling for non-ok response)
           let errorText = `API Error ${response.status}`;
           try {
-              const errorData = await response.json(); // Try to get detail from backend
+              const errorData = await response.json();
               errorText = errorData.detail || errorText;
-          } catch (e) { /* Ignore if response isn't JSON */ }
+          } catch (e) { /* Ignore */ }
           console.error('[Chat][Submit] API response error:', response.status, errorText);
-          throw new Error(errorText); // Throw to be caught by catch block
+          throw new Error(errorText);
       }
 
       // --- Process Stream ---
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let aiResponseContent = '';
-      const markdownDiv = aiMessageDiv.querySelector('.markdown-content'); // Target inner div
+      let aiResponseContent = ''; // Accumulates the final text content
+      let streamBuffer = ''; // Buffers chunks to find delimiters
+      const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
 
       if (!markdownDiv) {
           console.error('[Chat][Submit] Markdown display area (.markdown-content) not found.');
           throw new Error('Internal UI Error: Cannot display response.');
       }
 
-      let finalPayload = null; // To store {userMessageId, aiMessageId}
+      let finalPayload = null;
+      const START_DELIMITER = "<!-- FINAL_PAYLOAD:";
+      const END_DELIMITER = "-->";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        let chunk = decoder.decode(value, { stream: true });
+        // Append the decoded chunk to the buffer
+        const chunk = decoder.decode(value, { stream: true });
+        streamBuffer += chunk;
 
-        // Basic check for potential JSON payload at the end of a chunk
-        // WARNING: This is fragile. A more robust method involves delimiters or specific event types in event-stream.
-        const jsonMarker = '"userMessageId":';
-        const potentialJsonStart = chunk.lastIndexOf(jsonMarker);
-        // Check if it looks like a JSON object ending the chunk
-        if (potentialJsonStart !== -1 && chunk.trim().endsWith('}')) {
-            // Try to parse the potential JSON part
-            const jsonStringCandidate = chunk.substring(potentialJsonStart - 1); // Heuristic: include potential opening '{'
-             try {
-                 const parsed = JSON.parse(jsonStringCandidate);
-                 if (parsed.userMessageId && parsed.aiMessageId) {
-                     finalPayload = parsed; // Store the payload
-                     chunk = chunk.substring(0, chunk.lastIndexOf('{', potentialJsonStart)); // Remove JSON part from text chunk
-                 }
-             } catch (e) { /* Not valid JSON, treat as text */ }
+        // Check if the complete payload delimiter is in the buffer
+        const startIndex = streamBuffer.indexOf(START_DELIMITER);
+        const endIndex = streamBuffer.indexOf(END_DELIMITER);
+
+        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+            // Found the payload
+            const jsonString = streamBuffer.substring(startIndex + START_DELIMITER.length, endIndex);
+            try {
+                finalPayload = JSON.parse(jsonString);
+                console.log('[Chat] Successfully parsed final payload:', finalPayload);
+                // The actual text content is everything BEFORE the start delimiter
+                aiResponseContent = streamBuffer.substring(0, startIndex);
+                // Render the final text content
+                markdownDiv.innerHTML = window.marked ? window.marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
+                scrollToBottom('ai-result-output', true);
+                // We found the payload, break the loop
+                break;
+            } catch (e) {
+                console.error('[Chat] Error parsing final payload JSON:', e, 'Raw string:', jsonString);
+                // Payload format error from backend? Treat remaining buffer as text.
+                aiResponseContent = streamBuffer; // Use the whole buffer as text
+                markdownDiv.innerHTML = window.marked ? window.marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
+                // Continue reading? Or break? Let's break to avoid potential infinite loop on malformed data.
+                break;
+            }
+        } else {
+            // Payload not fully received yet, treat the current buffer as text for rendering
+            // Note: This renders potentially incomplete text, but updates progressively
+            aiResponseContent = streamBuffer; // Update our tracker of text content
+            markdownDiv.innerHTML = window.marked ? window.marked.parse(streamBuffer) : escapeHtml(streamBuffer).replace(/\n/g, '<br>');
+            scrollToBottom('ai-result-output', true); // Scroll as content streams
         }
-
-        // Append text chunk and render
-        if (chunk) {
-             aiResponseContent += chunk;
-             // Use marked library if available, otherwise basic formatting
-             markdownDiv.innerHTML = window.marked ? window.marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
-             scrollToBottom('ai-result-output', true); // Scroll as content streams
-        }
-
-        // If we found the payload, stop reading the stream (assuming it's the last thing)
-        if (finalPayload) break;
-
       } // End stream reading loop
 
       // --- Post-Stream Processing ---
       if (finalPayload) {
-          console.log('[Chat] Received final payload:', finalPayload);
+          // (Keep existing logic for setting IDs and adding delete buttons)
+          console.log('[Chat] Processing final payload actions:', finalPayload);
           if (aiMessageDiv) aiMessageDiv.dataset.messageId = finalPayload.aiMessageId;
           if (userMessageElement && userMessageElement.classList.contains('user-message')) {
                userMessageElement.dataset.messageId = finalPayload.userMessageId;
           } else {
                console.warn(`[Chat] Could not reliably find user message element via previousElementSibling to set ID ${finalPayload.userMessageId}. Check DOM structure.`);
           }
-          // Add delete buttons now that IDs are known
           const chatDisplay = document.getElementById('chat-message-list');
           if (chatDisplay) {
                this._addDeleteButtonsToLatestMessages(chatDisplay, finalPayload);
           }
       } else {
-          console.warn('[Chat] Stream finished, but no final message ID payload was detected.');
-          // Attempt to add delete buttons anyway, maybe using temp IDs if needed
-          const chatDisplay = document.getElementById('chat-message-list');
-          if (chatDisplay) {
-              this._addDeleteButtonsToLatestMessages(chatDisplay, null); // Pass null payload
-          }
+          // This log should now only appear if the stream ends *without* the backend sending the delimited payload
+          console.warn('[Chat] Stream finished, but no final message ID payload was detected or parsed correctly.');
+          // Attempt to add delete buttons anyway (might use temp IDs if real ones aren't set)
+           const chatDisplay = document.getElementById('chat-message-list');
+           if (chatDisplay) {
+               this._addDeleteButtonsToLatestMessages(chatDisplay, null); // Pass null payload
+           }
       }
 
-       // Final render pass for any remaining content in buffer (unlikely if using marked)
-       if (markdownDiv) {
+       // Final render pass for safety (unlikely needed if break logic is correct)
+       if (markdownDiv && aiResponseContent) { // Render the final accumulated text content
             markdownDiv.innerHTML = window.marked ? window.marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
        }
 
@@ -359,12 +374,12 @@ const ChatManager = {
       }
     } finally {
       // --- Cleanup ---
-      // Always re-enable inputs and hide loading indicator
+      // (Keep existing finally block)
       if (textareaElement) textareaElement.disabled = false;
       if (generateButton) generateButton.disabled = false;
       if (loadingIndicator) loadingIndicator.style.display = 'none';
-      if (textareaElement) setTextareaHeight(textareaElement); // Ensure height is correct
-      scrollToBottom('ai-result-output', true); // Final scroll after everything
+      if (textareaElement) setTextareaHeight(textareaElement);
+      scrollToBottom('ai-result-output', true);
     }
   },
 
