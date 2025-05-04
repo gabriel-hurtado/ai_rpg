@@ -546,3 +546,12 @@ footer .container p {
         margin-right: auto;
     }
 }
+
+#chat-context-controls #modify-context-button {
+    display: none !important; /* Hide it normally. Use !important for high priority. */
+}
+
+
+body.chat-fullscreen-active #chat-context-controls #modify-context-button {
+    display: inline-block !important; /* Or 'block' or 'flex' if needed, make it visible */
+}
