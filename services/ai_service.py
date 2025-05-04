@@ -111,8 +111,8 @@ async def generate_system_prompt_from_context(context_data: Dict[str, Any]) -> s
 # --- Streaming Function ---
 async def call_google_ai_stream(
     prompt: str,
-    history: List[Dict[str, Any]],
-    system_prompt_override_instructions: str | None = None # Accept override instructions
+    history: List[Dict[str, Any]], # History received should now be in the correct format
+    system_prompt_override_instructions: str | None = None
 ) -> AsyncGenerator[str, None]:
     """
     Yields AI response chunks. Uses BASE_SYSTEM_PROMPT initialization but prepends
@@ -121,25 +121,26 @@ async def call_google_ai_stream(
     if not google_ai_configured or not ai_model:
         yield "Error: AI service is not configured."; return
 
-    # Combine Base + Override Instructions for this specific session's context injection
     effective_system_prompt = BASE_SYSTEM_PROMPT
     if system_prompt_override_instructions:
         effective_system_prompt += "\n\n## Session Focus:\n" + system_prompt_override_instructions
 
     logger.info(f"Streaming AI request. History len: {len(history)}. Using effective system prompt (len {len(effective_system_prompt)}). Prompt: '{prompt[:50]}...'")
 
-    # --- Prepare History with effective system prompt ---
+    # --- Prepare History with effective system prompt (CORRECTED FORMAT) ---
     current_history = []
     # Inject the *entire* effective system prompt as the first instruction set
     current_history.append({"role": "user", "parts": [{"text": f"[System Instructions For This Session]:\n{effective_system_prompt}"}]})
     current_history.append({"role": "model", "parts": [{"text": "Understood. I will adhere to these instructions and my base role."}]})
-    current_history.extend(history) # Add the actual user/model chat history after instructions
+
+    # Now extend with the history received from the router, which is already formatted correctly
+    current_history.extend(history)
 
     try:
         # Start chat WITH the prepared history
+        # The prompt itself is the latest message, sent separately
         chat_session = ai_model.start_chat(history=current_history)
-        # Send only the latest user prompt
-        response_stream = await chat_session.send_message_async(prompt, stream=True)
+        response_stream = await chat_session.send_message_async(prompt, stream=True) # prompt is just text here
 
         async for chunk in response_stream:
             if hasattr(chunk, 'text') and chunk.text:

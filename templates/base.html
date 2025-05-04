@@ -133,45 +133,29 @@
             alert('Could not send request. Check network connection.');
         });
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // --- MODAL CLOSING LOGIC ---
-      const modalId = 'contextModal'; 
-      const chatSetupModalElement = document.getElementById(modalId);
-  
-      if (chatSetupModalElement) {
-        console.log(`Modal element #${modalId} found. Attaching closeModal listener.`); // Debug log
-  
-        // Listen for the custom 'closeModal' event triggered by HX-Trigger
-        chatSetupModalElement.addEventListener('closeModal', (event) => {
-          console.log(`'closeModal' event received for #${modalId}. Attempting to hide.`); // Debug log
-  
-          // Get the Bootstrap 5 Modal instance associated with this element
-          const modalInstance = bootstrap.Modal.getInstance(chatSetupModalElement);
-  
-          if (modalInstance) {
-            console.log("Bootstrap modal instance found. Calling hide()."); // Debug log
-            modalInstance.hide(); // Hide the modal
-          } else {
-            // This might happen if the modal wasn't properly initialized or the element ID is wrong
-            console.warn(`Could not find Bootstrap modal instance for #${modalId}. Cannot hide.`);
-            // As a fallback, you could try initializing and hiding immediately, but it's less ideal:
-            // try {
-            //   const newModalInstance = new bootstrap.Modal(chatSetupModalElement);
-            //   newModalInstance.hide();
-            // } catch (e) {
-            //   console.error("Fallback modal initialization failed:", e);
-            // }
-          }
-        });
-  
-      } else {
-        console.warn(`Modal element with ID #${modalId} not found. Cannot attach closeModal listener.`); // Debug log
-      }
-  
-      // --- Add any other global listeners or setup here ---
-  
-    }); // End DOMContentLoaded
-  
+// Inside the closeModal event listener, before hiding:
+document.body.addEventListener('closeModal', (event) => {
+    const modalId = 'contextModal';
+    console.log(`'closeModal' event received on body. Looking for #${modalId}.`);
+    const chatSetupModalElement = document.getElementById(modalId);
+
+    if (chatSetupModalElement) {
+        const modalInstance = bootstrap.Modal.getInstance(chatSetupModalElement);
+        if (modalInstance) {
+            try {
+                // Try focusing something neutral outside the modal FIRST
+                document.body.focus(); 
+             } catch (e) { console.warn("Could not focus body"); }
+
+            console.log(`Bootstrap modal instance found for #${modalId}. Calling hide().`);
+            modalInstance.hide(); 
+        } else {
+            console.warn(`Could not find Bootstrap modal instance for #${modalId}...`);
+        }
+    } else {
+         console.warn(`Modal element with ID #${modalId} not found...`);
+    }
+});
 
   
     </script>

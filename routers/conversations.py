@@ -10,7 +10,7 @@ from sqlmodel import Session, select, col
 
 # Core Imports
 from database import get_session, engine 
-from models import Conversation, ChatMessage, MessageRole 
+from models import Conversation, ChatMessage, MessageRole, User
 # Corrected Auth Imports
 from services.auth_service import safe_require_user 
 from main import PropelUser 
@@ -209,8 +209,14 @@ async def chat_message_stream(
         effective_system_prompt = conversation.system_prompt_override or BASE_SYSTEM_PROMPT
         logger.debug(f"Using effective system prompt (len {len(effective_system_prompt)}) for convo {final_conversation_id}")
 
-        # Format history for AI service (simple list of dicts)
-        formatted_history = [{"role": msg.role.value, "content": msg.content} for msg in history_messages]
+        formatted_history = []
+        for msg in history_messages:
+            # Ensure role is 'user' or 'model' as expected by the SDK
+            sdk_role = "user" if msg.role == MessageRole.USER else "model"
+            formatted_history.append({
+                "role": sdk_role,
+                "parts": [{"text": msg.content}] # Wrap content in 'parts' list with 'text' key
+            })
 
         # --- Stream Response and Save AI Message ---
         async def stream_and_save(user_msg_id: int):
@@ -218,11 +224,10 @@ async def chat_message_stream(
             ai_had_error = False
             ai_message_id = None
             try:
-                # Pass the override to the stream function
                 ai_stream = call_google_ai_stream(
-                    prompt=prompt,
-                    history=formatted_history,
-                    system_prompt_override_instructions=effective_system_prompt # Pass the combined/override prompt
+                    prompt=prompt, # The current prompt is just text, which is handled correctly
+                    history=formatted_history, # Pass the correctly formatted history
+                    system_prompt_override_instructions=effective_system_prompt
                 )
 
                 async for chunk in ai_stream:

@@ -1047,6 +1047,8 @@ const ChatManager = {
         modifyContextButton.addEventListener('click', (e) => {
             e.preventDefault();
             this.editCurrentChatContext();
+            
+            console.log("[Chat Events] Modify context modal loaded.");
         });
     } else { console.warn("[Chat Events] Modify context button #modify-context-button not found."); }
 
