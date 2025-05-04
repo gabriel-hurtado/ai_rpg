@@ -132,14 +132,15 @@
                          <div id="chat-fullscreen-sidebar" class="d-none"> 
                              <div class="conversation-sidebar-header d-flex justify-content-between align-items-center">
                                 <span>Conversations</span>
-                                <button id="new-conversation-btn" type="button" class="btn btn-sm btn-secondary w-100 mb-2"
-                                data-bs-toggle="modal"          
-                                data-bs-target="#contextModal"   
-                                hx-get="/api/v1/chat/setup/start" 
-                                hx-target="#modal-content-area"    
-                                hx-trigger="click"              
-                                > 
-                            <i class="bi bi-plus-lg"></i> New Conversation
+                                <button id="new-conversation-btn" type="button"
+                                class="btn btn-link p-0 ms-2"  
+                                title="New Conversation"             
+                                data-bs-toggle="modal"               
+                                data-bs-target="#contextModal"       
+                                hx-get="/api/v1/chat/setup/start"    
+                                hx-target="#modal-content-area"      
+                                hx-trigger="click">                  
+                            <i class="bi bi-plus-circle" style="font-size: 1.2rem;"></i> <!-- Adjust size as needed -->
                         </button>
                             </div>
                             <ul id="conversation-list" class="conversation-list"></ul>

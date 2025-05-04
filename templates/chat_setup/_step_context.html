@@ -6,44 +6,91 @@
     <div class="modal-nav flex-shrink-0 pe-3 me-3 border-end border-secondary" style="width: 180px;">
         <p class="text-muted small mb-2 fw-bold text-uppercase">CONTEXT</p>
         <nav class="nav flex-column nav-pills">
- <!-- templates/chat_setup/_step_context.html (Sidebar Button) -->
- <button type="button" class="nav-link text-start mb-1"
-         hx-get="/api/v1/chat/setup/fragment?section=goal"
-         hx-target="#modal-content-area"
-         hx-include="#context-setup-form" > <!-- CHANGE to ID selector -->
-     <i class="bi bi-bullseye me-2"></i>Goal
- </button>
-             <button type="button" class="nav-link active text-start mb-1" aria-current="page" disabled> {# Active & Disabled #}
-                <i class="bi bi-pencil-square me-2"></i>Context Details
+            <button type="button" class="nav-link text-start mb-1"
+                    hx-get="/api/v1/chat/setup/fragment?section=goal"
+                    hx-target="#modal-content-area"
+                    hx-include="#context-setup-form" >
+                <i class="bi bi-bullseye me-2"></i>Goal
             </button>
+            <button type="button" class="nav-link active text-start mb-1" aria-current="page" disabled> {# Active & Disabled #}
+               <i class="bi bi-pencil-square me-2"></i>Context Details
+           </button>
             {# Add other nav items if needed #}
         </nav>
     </div>
 
     <!-- === Modal Step Content Area === -->
     <div class="modal-step-content flex-grow-1" id="modal-step-content">
+        {# Make sure the form ID is unique and stable #}
         <form id="context-setup-form" hx-post="/api/v1/chat/setup/save" hx-target="#modal-content-area" hx-swap="innerHTML" hx-indicator="#modal-loading-indicator" autocomplete="off">
             {# --- Hidden Fields --- #}
+            {# Pass all relevant context back and forth #}
             <input type="hidden" name="conversation_id" value="{{ context.get('conversation_id') }}">
-            <input type="hidden" name="goal" value="{{ context.get('goal') }}"> {# Crucial: pass goal #}
+            <input type="hidden" name="goal" value="{{ context.get('goal') }}">
+            {# Include potentially hidden 'other' text values too #}
+            {% if context.get('is_goal_other_selected') %}
+            <input type="hidden" name="goal_other_text" value="{{ context.get('goal_other_text', '') }}">
+            {% endif %}
+            {# No need to pass genre/system hidden IF the select/other-text covers it #}
+
 
             {# --- Inputs for THIS step (Context Details) --- #}
             <h6 class="mb-3 fw-bold"><i class="bi bi-pencil-square me-2"></i>Context Details</h6>
 
+            {# --- Genre & Tone --- #}
             <div class="mb-3">
-                <label for="context-genre-tone" class="form-label small text-muted">Genre & Tone <small>(Optional)</small></label>
-                <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" id="context-genre-tone" name="genre_tone" value="{{ context.get('genre_tone', '') }}" placeholder="e.g., High Fantasy, Comedic Sci-Fi, Grimdark Noir">
+                <label for="context-genre-tone-select" class="form-label small text-muted">Genre & Tone <small>(Optional)</small></label>
+                <select class="form-select form-select-sm bg-dark text-light border-secondary"
+                        id="context-genre-tone-select"
+                        name="genre_tone" {# Name matches the primary key #}
+                        onchange="toggleOtherInput('context-genre-tone-select', 'other-genre-tone-wrapper', 'context-genre-tone-other-text')">
+                    {# Loop through predefined genres passed from backend #}
+                    {% for genre in context.get('predefined_genres', []) %}
+                        <option value="{{ genre }}" {% if context.get('genre_tone') == genre %}selected{% endif %}>{{ genre }}</option>
+                    {% endfor %}
+                    <option value="other" {% if context.get('genre_tone') == 'other' %}selected{% endif %}>Other (Please specify)</option>
+                </select>
+            </div>
+            {# Input for "Other" Genre (Initially Hidden based on context) #}
+            <div class="mb-3 {% if not context.get('is_genre_other_selected') %}d-none{% endif %}" id="other-genre-tone-wrapper">
+                <label for="context-genre-tone-other-text" class="form-label small text-muted">Specify Genre & Tone:</label>
+                <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary"
+                       id="context-genre-tone-other-text"
+                       name="genre_tone_other_text" {# Unique name for the text #}
+                       placeholder="e.g., Weird West, Hopepunk"
+                       value="{{ context.get('genre_tone_other_text', '') }}"> {# Pre-fill if 'other' was selected #}
             </div>
 
+            {# --- Game System --- #}
             <div class="mb-3">
-                <label for="context-game-system" class="form-label small text-muted">Game System <small>(Optional)</small></label>
-                <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" id="context-game-system" name="game_system" value="{{ context.get('game_system', '') }}" placeholder="e.g., D&D 5e, System-Agnostic, My Homebrew Rules">
+                <label for="context-game-system-select" class="form-label small text-muted">Game System <small>(Optional)</small></label>
+                 <select class="form-select form-select-sm bg-dark text-light border-secondary"
+                        id="context-game-system-select"
+                        name="game_system" {# Name matches the primary key #}
+                        onchange="toggleOtherInput('context-game-system-select', 'other-game-system-wrapper', 'context-game-system-other-text')">
+                    {# Loop through predefined systems passed from backend #}
+                    {% for system in context.get('predefined_systems', []) %}
+                        <option value="{{ system }}" {% if context.get('game_system') == system %}selected{% endif %}>{{ system }}</option>
+                    {% endfor %}
+                    <option value="other" {% if context.get('game_system') == 'other' %}selected{% endif %}>Other (Please specify)</option>
+                </select>
+            </div>
+             {# Input for "Other" System (Initially Hidden based on context) #}
+             <div class="mb-3 {% if not context.get('is_system_other_selected') %}d-none{% endif %}" id="other-game-system-wrapper">
+                <label for="context-game-system-other-text" class="form-label small text-muted">Specify Game System:</label>
+                <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary"
+                       id="context-game-system-other-text"
+                       name="game_system_other_text" {# Unique name for the text #}
+                       placeholder="e.g., Cypher System, Custom Ruleset"
+                       value="{{ context.get('game_system_other_text', '') }}"> {# Pre-fill if 'other' was selected #}
             </div>
 
+
+             {# --- Key Details --- #}
              <div class="mb-3">
                 <label for="context-key-details" class="form-label small text-muted">
                     Key Details / Specific Request
-                    {% if context.get('goal') == 'refine_text' %}
+                    {% if context.get('goal') == 'refine_text' %} {# Check original goal value #}
                         <strong class="text-warning">(Paste text to refine here)</strong>
                     {% endif %}
                     <small>(Optional)</small>
@@ -58,7 +105,7 @@
                 <button type="button" class="btn btn-outline-secondary btn-sm"
                         hx-get="/api/v1/chat/setup/fragment?section=goal"
                         hx-target="#modal-content-area"
-                        hx-include="closest form">
+                        hx-include="closest form"> {# Include all form data #}
                     « Back to Goal
                 </button>
                  {# Loading Indicator #}
@@ -66,15 +113,55 @@
                     <span class="visually-hidden">Loading...</span>
                 </div>
                 {# Final Save button #}
-                <button type="submit" class="btn btn-primary btn-sm custom-btn"> {# Removed btn-info #}
+                <button type="submit" class="btn btn-primary btn-sm custom-btn">
                    <i class="bi bi-check-lg me-2"></i> Save Context & Start Chat
                 </button>
             </div>
         </form> {# End form #}
 
-        <!-- Add this script block preferably at the end of your base HTML file, before the closing </body> tag -->
-<!-- OR include it in your main site JavaScript file (e.g., static/js/app.js) -->
-
-
     </div> {# End step content #}
 </div> {# End d-flex #}
+
+{# --- Add this reusable script --- #}
+{# Place it either here, in the base template, or your main JS file #}
+<script>
+function toggleOtherInput(selectId, wrapperId, inputId) {
+    const selectElement = document.getElementById(selectId);
+    const otherWrapper = document.getElementById(wrapperId);
+    const otherInput = document.getElementById(inputId);
+
+    if (!selectElement || !otherWrapper || !otherInput) {
+        console.error("Toggle elements not found:", selectId, wrapperId, inputId);
+        return;
+    }
+
+    if (selectElement.value === 'other') {
+        otherWrapper.classList.remove('d-none'); // Show the wrapper
+        // Optional: Focus the input when it becomes visible
+        // otherInput.focus();
+    } else {
+        otherWrapper.classList.add('d-none'); // Hide the wrapper
+        otherInput.value = ''; // Clear the input when hiding
+    }
+}
+
+// Optional: Add event listener for htmx:afterSwap to re-initialize
+// if necessary, though the inline onchange and Jinja templating
+// should handle most cases.
+/*
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Check if the swapped content contains our select elements and re-run initial check
+    const contextArea = document.getElementById('modal-content-area'); // Or more specific target
+    if (contextArea && contextArea.contains(event.detail.target)) {
+        const genreSelect = document.getElementById('context-genre-tone-select');
+        if (genreSelect) {
+             toggleOtherInput('context-genre-tone-select', 'other-genre-tone-wrapper', 'context-genre-tone-other-text');
+        }
+        const systemSelect = document.getElementById('context-game-system-select');
+         if (systemSelect) {
+             toggleOtherInput('context-game-system-select', 'other-game-system-wrapper', 'context-game-system-other-text');
+         }
+    }
+});
+*/
+</script>
