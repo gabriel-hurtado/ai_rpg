@@ -3,7 +3,7 @@ import os
 import logging
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig, HarmCategory, HarmBlockThreshold
-from typing import Dict, Any, List, AsyncGenerator
+from typing import Dict, Any, List, AsyncGenerator, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ async def generate_system_prompt_from_context(context_data: Dict[str, Any]) -> s
     except Exception as e:
         logger.error(f"Error calling Google AI for system prompt generation: {e}", exc_info=True)
         return None
-
+        
 # --- Streaming Function ---
 async def call_google_ai_stream(
     prompt: str,

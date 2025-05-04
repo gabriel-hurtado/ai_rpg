@@ -898,73 +898,82 @@ const ChatManager = {
 
    /** Handles the response after HTMX saves context (via HX-Trigger header). */
    _handleHtmxSaveResponse(event) {
-        const xhr = event.detail.xhr;
-        // Check if the response is from the expected save endpoint
-        if (!xhr || !xhr.responseURL || !xhr.responseURL.includes('/api/v1/chat/setup/save')) {
-            return; // Not the response we're interested in
-        }
+    const xhr = event.detail.xhr;
+    if (!xhr || !xhr.responseURL || !xhr.responseURL.includes('/api/v1/chat/setup/save')) {
+        return;
+    }
 
-        console.log('[Chat HTMX] Detected response from /save endpoint.');
-        const triggerHeader = xhr.getResponseHeader('HX-Trigger');
+    console.log('[Chat HTMX] Detected response from /save endpoint.');
+    const triggerHeader = xhr.getResponseHeader('HX-Trigger');
 
-        if (!triggerHeader) {
-            console.warn('[Chat HTMX] Response from /save but no HX-Trigger header found. Closing modal.');
-             if (this.contextModalInstance) this.contextModalInstance.hide();
-            return;
-        }
+    if (!triggerHeader) {
+        console.warn('[Chat HTMX] Response from /save but no HX-Trigger header found. Closing modal.');
+         if (this.contextModalInstance) this.contextModalInstance.hide();
+        return;
+    }
 
-        console.log('[Chat HTMX] Found HX-Trigger header:', triggerHeader);
-        try {
-            const triggers = JSON.parse(triggerHeader);
+    console.log('[Chat HTMX] Found HX-Trigger header:', triggerHeader);
+    try {
+        const triggers = JSON.parse(triggerHeader);
 
-            // --- Handle New Chat Creation ---
-            if (triggers.newChatCreated) {
-                console.log('[Chat HTMX] Handling newChatCreated:', triggers.newChatCreated);
-                const { id, title, context } = triggers.newChatCreated;
+        // --- Handle New Chat Creation ---
+        if (triggers.newChatCreated) {
+            console.log('[Chat HTMX] Handling newChatCreated:', triggers.newChatCreated);
+            const { id, title, context, initialMessagesGenerated } = triggers.newChatCreated; // <<< Extract new flag
 
-                if (this.contextModalInstance) this.contextModalInstance.hide(); // Hide modal first
+            if (this.contextModalInstance) this.contextModalInstance.hide(); // Hide modal first
 
-                this.currentConversationId = id; // Set new convo as active
-                this.renderSidebarConversations(); // Refresh sidebar (will mark new one active)
+            this.currentConversationId = id; // Set new convo as active BEFORE loading it
+            this.renderSidebarConversations(); // Refresh sidebar (will mark new one active)
 
-                // Update main chat UI
+            // --- MODIFIED LOGIC ---
+            if (initialMessagesGenerated) {
+                console.log('[Chat HTMX] Initial messages were generated. Loading conversation view.');
+                // Load the conversation which will display the generated messages
+                this.loadAndDisplayConversation(id).then(() => {
+                     // Optional: Focus input after loading finishes
+                     document.getElementById('ai-prompt-input')?.focus();
+                     this.fetchAndUpdateCreditsDisplay(); // Update credits display
+                });
+            } else {
+                console.log('[Chat HTMX] No initial messages generated. Displaying setup confirmation.');
+                // Fallback to original behavior: show context set message
                 const chatDisplay = document.getElementById('chat-message-list');
-                if(chatDisplay) chatDisplay.innerHTML = ''; // Clear "Setting up..."
+                if(chatDisplay) chatDisplay.innerHTML = ''; // Clear "Setting up..." or previous content
                 renderMessage('ai', `Context set for "${escapeHtml(title)}". What's your first prompt?`, chatDisplay);
                 this.updateActiveContextDisplay(context); // Show context badges
                 const modifyBtn = document.getElementById('chat-context-controls');
                 if(modifyBtn) modifyBtn.style.display = 'flex'; // Show modify button
                 scrollToBottom('ai-result-output', false);
                 document.getElementById('ai-prompt-input')?.focus(); // Focus input
-
-            // --- Handle Existing Chat Context Update ---
-            } else if (triggers.chatContextUpdated) {
-                console.log('[Chat HTMX] Handling chatContextUpdated:', triggers.chatContextUpdated);
-                const { id, context } = triggers.chatContextUpdated;
-
-                if (this.contextModalInstance) this.contextModalInstance.hide(); // Hide modal
-
-                // Only update UI if the updated context belongs to the currently viewed chat
-                if (id === this.currentConversationId) {
-                    this.updateActiveContextDisplay(context);
-                    console.log(`[Chat Context] Display updated for conversation ${id}`);
-                    // Optional: Show a success message/toast
-                } else {
-                     console.log(`[Chat Context] Context updated for ${id}, but not the current view (${this.currentConversationId}).`);
-                     // Refresh sidebar in case title/metadata changed implicitly? Unlikely based on trigger.
-                     this.renderSidebarConversations();
-                }
-            } else {
-                console.warn('[Chat HTMX] Unknown trigger in HX-Trigger header:', triggers);
-                 if (this.contextModalInstance) this.contextModalInstance.hide(); // Hide modal as fallback
+                 this.fetchAndUpdateCreditsDisplay(); // Update credits display here too
             }
-        } catch (e) {
-            console.error('[Chat HTMX] Error parsing HX-Trigger JSON:', e, triggerHeader);
-            alert("Error processing context save response. Please check console.");
-            // Hide modal even on parse error
+            // --- END MODIFIED LOGIC ---
+
+        // --- Handle Existing Chat Context Update ---
+        } else if (triggers.chatContextUpdated) {
+            // (Keep existing logic for context update)
+            console.log('[Chat HTMX] Handling chatContextUpdated:', triggers.chatContextUpdated);
+            const { id, context } = triggers.chatContextUpdated;
             if (this.contextModalInstance) this.contextModalInstance.hide();
+            if (id === this.currentConversationId) {
+                this.updateActiveContextDisplay(context);
+                console.log(`[Chat Context] Display updated for conversation ${id}`);
+            } else {
+                 console.log(`[Chat Context] Context updated for ${id}, but not the current view (${this.currentConversationId}).`);
+                 this.renderSidebarConversations();
+            }
+             this.fetchAndUpdateCreditsDisplay(); // Update credits display on context update too
+        } else {
+            console.warn('[Chat HTMX] Unknown trigger in HX-Trigger header:', triggers);
+             if (this.contextModalInstance) this.contextModalInstance.hide();
         }
-   },
+    } catch (e) {
+        console.error('[Chat HTMX] Error parsing HX-Trigger JSON:', e, triggerHeader);
+        alert("Error processing context save response. Please check console.");
+        if (this.contextModalInstance) this.contextModalInstance.hide();
+    }
+},
 
 
   // --- EVENT LISTENERS SETUP ---

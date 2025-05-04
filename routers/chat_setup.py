@@ -13,13 +13,14 @@ from sqlmodel import Session, select
 
 # Core application components
 from database import get_session
-from models import User, Conversation
+from models import User, Conversation, ChatMessage, MessageRole
 from main import PropelUser
 from services.auth_service import safe_require_user
 from services.db_service import get_or_create_db_user
 # Import AI service function and base prompt
-from services.ai_service import generate_system_prompt_from_context, BASE_SYSTEM_PROMPT
+from services.ai_service import generate_system_prompt_from_context, call_google_ai_stream, BASE_SYSTEM_PROMPT
 from main import templates
+from services.db_service import get_or_create_db_user, check_credit_status
 
 # routers/chat_setup.py
 # ... other imports ...
@@ -70,6 +71,8 @@ DEFAULT_CONTEXT = {
     "key_details": "",
     "conversation_id": None,
 }
+
+INITIAL_PROMPT = "Give me an overview of what you will help me do."
 
 # --- Helper Function (Optional but Recommended) ---
 def prepare_context_for_template(incoming_context: Dict[str, Any]) -> Dict[str, Any]:
@@ -206,7 +209,7 @@ async def get_setup_for_edit(
     template_name = f"chat_setup/{SETUP_SECTIONS['goal']}" # Always start edit from Goal step
     return templates.TemplateResponse(template_name, {"request": request, "context": context_to_pass})
 
-
+# --- MODIFIED SAVE ENDPOINT ---
 @router.post("/save", status_code=204)
 async def save_setup_context(
     request: Request,
@@ -214,12 +217,12 @@ async def save_setup_context(
     db: Session = Depends(get_session)
 ):
     """
-    Saves context, generates system prompt via AI, creates/updates Conversation.
-    On success, returns 204 No Content with HX-Trigger header to update UI
-    and close the modal.
+    Saves context, generates system prompt, creates/updates Conversation.
+    IF CREATING: If key_details exist and user has credit, generates the first
+                 User/AI message pair.
+    On success, returns 204 No Content with HX-Trigger header.
     """
     form_data = await request.form()
-    # Get the last value if a key appears multiple times (e.g., hidden + select)
     form_dict = {k: form_data.getlist(k)[-1] for k in form_data.keys()}
     logger.info(f"User {user.user_id}: POST /save context data.")
     logger.debug(f"Received raw form data: {form_dict}")
@@ -230,68 +233,44 @@ async def save_setup_context(
     conversation_id_str = form_dict.pop("conversation_id", None)
     conversation_id = int(conversation_id_str) if conversation_id_str and conversation_id_str.isdigit() else None
 
-    # Define the keys we expect and want to process for the final context
-    context_keys = ["goal", "genre_tone", "game_system", "key_details"]
+    # --- Process Form Data into final_context (Keep Existing Logic) ---
     final_context = {}
-
-    # --- Process Goal ---
-    goal = form_dict.get("goal")
-    if goal == "other":
-        other_text = form_dict.get("goal_other_text", "").strip()
-        if other_text: final_context["goal"] = other_text
-        # else: Goal is skipped if "other" selected but no text provided
-    elif goal:
-        final_context["goal"] = goal
-
-    # --- Process Genre & Tone ---
-    genre = form_dict.get("genre_tone")
-    if genre == "other":
-        other_text = form_dict.get("genre_tone_other_text", "").strip()
-        if other_text: final_context["genre_tone"] = other_text
-    elif genre:
-        final_context["genre_tone"] = genre
-
-    # --- Process Game System ---
-    system = form_dict.get("game_system")
-    if system == "other":
-        other_text = form_dict.get("game_system_other_text", "").strip()
-        if other_text: final_context["game_system"] = other_text
-    elif system:
-        final_context["game_system"] = system
-
-    # --- Process Key Details ---
+    goal = form_dict.get("goal"); goal_other = form_dict.get("goal_other_text", "").strip()
+    if goal == "other" and goal_other: final_context["goal"] = goal_other
+    elif goal and goal != "other": final_context["goal"] = goal
+    genre = form_dict.get("genre_tone"); genre_other = form_dict.get("genre_tone_other_text", "").strip()
+    if genre == "other" and genre_other: final_context["genre_tone"] = genre_other
+    elif genre and genre != "other": final_context["genre_tone"] = genre
+    system = form_dict.get("game_system"); system_other = form_dict.get("game_system_other_text", "").strip()
+    if system == "other" and system_other: final_context["game_system"] = system_other
+    elif system and system != "other": final_context["game_system"] = system
     key_details = form_dict.get("key_details", "").strip()
-    if key_details:
-        final_context["key_details"] = key_details
-
+    if key_details: final_context["key_details"] = key_details
     logger.debug(f"Processed context data to save: {final_context}")
 
-    # --- Generate System Prompt via AI ---
+    # --- Generate System Prompt (Keep Existing Logic) ---
     logger.info("Generating tailored system prompt instructions from context via AI...")
-    # Use final_context which has the resolved values
     generated_prompt_instructions = await generate_system_prompt_from_context(final_context)
-
-    effective_system_prompt = BASE_SYSTEM_PROMPT # Start with base
+    effective_system_prompt = BASE_SYSTEM_PROMPT
     if generated_prompt_instructions:
-        # Append the generated instructions
         effective_system_prompt += "\n\n## Session Focus:\n" + generated_prompt_instructions
-        logger.info(f"Using combined system prompt (Base + AI Generated Override). Length: {len(effective_system_prompt)}")
+        logger.info(f"Using combined system prompt. Length: {len(effective_system_prompt)}")
     else:
-        logger.warning("AI system prompt generation failed or context was insufficient. Using only base system prompt.")
+        logger.warning("AI system prompt generation failed or context insufficient. Using only base system prompt.")
 
     trigger_payload = {}
+    initial_messages_generated = False # Flag for HX-Trigger
 
     try:
         if conversation_id: # --- Editing ---
+            # (Keep existing update logic - no initial message generation on edit)
             logger.info(f"Updating context for existing conversation ID: {conversation_id}")
             conversation = db.exec(select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == db_user.id, Conversation.is_active == True)).first()
             if not conversation: raise HTTPException(status_code=404, detail="Conversation not found for update.")
-
-            conversation.context_data = final_context or None # Save resolved context
-            conversation.system_prompt_override = effective_system_prompt # Save effective prompt
+            conversation.context_data = final_context or None
+            conversation.system_prompt_override = effective_system_prompt
             conversation.updated_at = datetime.now(timezone.utc)
-            db.add(conversation)
-            db.commit()
+            db.add(conversation); db.commit()
             logger.info(f"Successfully updated context/prompt for conversation {conversation_id}.")
             session_info = {"id": conversation.id, "context": final_context}
             trigger_payload = {"chatContextUpdated": session_info, "closeModal": True}
@@ -299,35 +278,137 @@ async def save_setup_context(
         else: # --- Creating ---
             logger.info(f"Creating new conversation with context for user {db_user.id}")
             title_goal = final_context.get('goal', 'Chat').replace('_', ' ').title()
-            # Use genre/tone for title, fallback gracefully
             genre_part = final_context.get('genre_tone', 'New Session')
-            title_genre = genre_part.split(',')[0].strip()[:40] # Slightly longer title part
-            new_title = f"{title_goal}: {title_genre}"[:150] # Ensure max length
+            title_genre = genre_part.split(',')[0].strip()[:40]
+            new_title = f"{title_goal}: {title_genre}"[:150]
 
+            # Create Conversation FIRST
             new_conversation = Conversation(
                 user_id=db_user.id,
                 title=new_title,
-                context_data=final_context or None, # Save resolved context
-                system_prompt_override=effective_system_prompt # Save effective prompt
+                context_data=final_context or None,
+                system_prompt_override=effective_system_prompt
             )
             db.add(new_conversation)
             db.commit()
             db.refresh(new_conversation)
-            logger.info(f"Successfully created new conversation {new_conversation.id} with title '{new_title}'.")
-            session_info = {"id": new_conversation.id, "title": new_conversation.title, "context": final_context}
-            trigger_payload = {"newChatCreated": session_info, "closeModal": True}
+            new_conversation_id = new_conversation.id # Get the ID
+            logger.info(f"Successfully created new conversation {new_conversation_id} with title '{new_title}'.")
 
+
+                # Check credits BEFORE calling AI
+            has_credit, reason = check_credit_status(db_user) # Check the user object from this session
+            if has_credit:
+                    logger.info(f"User {db_user.id} has credit. Attempting initial AI generation for convo {new_conversation_id}.")
+
+                    user_message_content = INITIAL_PROMPT
+                    ai_response_text = ""
+                    ai_stream_had_error = False
+                    ai_message_saved = False
+
+                    try:
+                        # --- Start Transaction Block for User Msg, AI Msg, Credit ---
+
+
+                        # 2. Call AI (Consume Stream)
+                        logger.debug("Calling AI stream for initial message...")
+                        ai_stream = call_google_ai_stream(
+                            prompt=user_message_content,
+                            history=[],
+                            system_prompt_override_instructions=effective_system_prompt
+                        )
+
+                        # <<<< ****** CORE FIX START ****** >>>>
+                        async for chunk in ai_stream:
+                            # Check for error chunks yielded by the stream function
+                            if chunk.startswith("**Error:**") or chunk.startswith("Error:"):
+                                logger.error(f"AI stream reported an error during initial generation: {chunk}")
+                                ai_response_text = chunk # Store error text if needed
+                                ai_stream_had_error = True
+                                break # Stop processing stream on error
+                            ai_response_text += chunk
+                        # <<<< ****** CORE FIX END ****** >>>>
+
+                        # Check for empty response even if no error chunk received
+                        if not ai_stream_had_error and not ai_response_text.strip():
+                             logger.warning("Initial AI generation resulted in empty content.")
+                             ai_stream_had_error = True # Treat as error for saving
+
+                        # 3. Save AI Response & Decrement Credit (only if stream successful)
+                        if not ai_stream_had_error:
+                            logger.debug("AI stream finished successfully. Saving AI message and decrementing credit.")
+                            # Lock user row for atomic credit update
+                            locked_user = db.exec(select(User).where(User.id == db_user.id).with_for_update()).first()
+
+                            if not locked_user:
+                                logger.error(f"CRITICAL: User {db_user.id} not found post-stream. Aborting save.")
+                                db.rollback() # Rollback user message add
+                            elif locked_user.credits <= 0:
+                                logger.warning(f"User {db_user.id} credit check failed ({locked_user.credits}) *after* AI call. Rolling back initial message save.")
+                                db.rollback() # Rollback user message add
+                            else:
+                                # Save AI message
+                                ai_message = ChatMessage(
+                                    conversation_id=new_conversation_id,
+                                    role=MessageRole.ASSISTANT,
+                                    content=ai_response_text.strip() # Use accumulated text
+                                )
+                                db.add(ai_message)
+
+                                # Update conversation timestamp (already have new_conversation object)
+                                new_conversation.updated_at = datetime.now(timezone.utc)
+                                db.add(new_conversation)
+
+                                # Commit User message, AI message, credit update, timestamp update together
+                                db.commit()
+                                db.refresh(ai_message)
+                                db.refresh(locked_user)
+                                db.refresh(new_conversation) # Ensure updated_at is refreshed
+
+                                logger.info(f"Successfully generated and saved initial messages. AI:{ai_message.id}. User credits decremented to {locked_user.credits}.")
+                                initial_messages_generated = True # Mark success
+                                ai_message_saved = True # Flag for cleanup
+
+                        else:
+                            # AI stream had an error or was empty. Rollback the user message add.
+                            logger.warning("Initial AI generation failed or was empty. Rolling back user message addition.")
+                            db.rollback() # Roll back the user_message add
+                            db.refresh(new_conversation) # Refresh convo state
+
+                    except Exception as ai_exc:
+                        db.rollback() # Rollback any partial changes (user message add)
+                        logger.error(f"Error during initial message generation stream processing: {ai_exc}", exc_info=True)
+                        initial_messages_generated = False # Ensure flag is false
+                        db.refresh(new_conversation) # Refresh convo state
+
+            else: # No credit
+                    logger.warning(f"User {db_user.id} does not have enough credits ({db_user.credits}) for initial message generation. Reason: {reason}")
+                    # No action needed, conversation created, flag remains false.
+                    initial_messages_generated = False
+
+
+            # --- Prepare Trigger Payload ---
+        session_info = {
+                "id": new_conversation_id, # Use the obtained ID
+                "title": new_conversation.title,
+                "context": final_context,
+                "initialMessagesGenerated": initial_messages_generated # <<< ADDED FLAG
+            }
+        trigger_payload = {"newChatCreated": session_info, "closeModal": True}
+            # --- End Initial Message Generation ---
+
+        # Return success with appropriate trigger
         headers = {"HX-Trigger": json.dumps(trigger_payload)}
         return Response(status_code=204, headers=headers)
 
     except HTTPException:
-         db.rollback(); raise
+         db.rollback(); raise # Re-raise HTTP exceptions
     except Exception as e:
-        db.rollback()
-        logger.error(f"Error saving context for user {user.user_id} (Convo ID: {conversation_id}): {e}", exc_info=True)
-        # Return an HX-Trigger to show an error message in the modal instead of closing
-        error_payload = {"showError": {"message": "Failed to save context. Please try again."}}
+        db.rollback() # Rollback any ongoing transaction
+        logger.error(f"Error saving context/generating initial message for user {user.user_id} (Convo ID: {conversation_id}): {e}", exc_info=True)
+        # Return error trigger
+        error_payload = {"showError": {"message": "Failed to save context or generate initial message. Please try again."}}
         error_headers = {"HX-Trigger": json.dumps(error_payload)}
-        # Return 200 OK with error payload so HTMX processes the trigger
-        # Or potentially keep 500, but HTMX might not process HX-Trigger on 5xx
+        # Use 500 to indicate server error, but HTMX might ignore trigger. 200 OK with error payload might be better.
         return Response(content="Error saving context.", status_code=500, headers=error_headers) # Or 200
+    
