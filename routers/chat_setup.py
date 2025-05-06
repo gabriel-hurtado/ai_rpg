@@ -75,62 +75,99 @@ DEFAULT_CONTEXT = {
 INITIAL_PROMPT = "Give me an overview of what you will help me do."
 
 # --- Helper Function (Optional but Recommended) ---
-def prepare_context_for_template(incoming_context: Dict[str, Any]) -> Dict[str, Any]:
-    """Merges incoming context with defaults and prepares 'other' flags/values."""
-    context = DEFAULT_CONTEXT.copy()
-    context.update(incoming_context)
+def prepare_context_for_template(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    context = DEFAULT_CONTEXT.copy() # Start with global defaults
 
-    # Coerce conversation_id
-    conv_id_val = context.get("conversation_id")
-    if conv_id_val in [None, 'None', 'null', '']: context["conversation_id"] = None
-    else:
-        try: context["conversation_id"] = int(conv_id_val)
-        except (ValueError, TypeError): context["conversation_id"] = None
+    # Helper to resolve the actual value and select/other_text for UI
+    def _resolve_field(field_name: str, other_text_field_name: str, predefined_list: list, current_raw_data: dict):
+        actual_value = None
+        select_value_for_ui = None
+        other_text_for_ui = ""
 
-    # --- Handle 'other' logic for Goal ---
-    current_goal = context.get("goal")
-    goal_is_other = current_goal is not None and current_goal not in PREDEFINED_GOALS
-    context["is_goal_other_selected"] = goal_is_other
-    if goal_is_other:
-        context["goal_other_text"] = current_goal # Keep original text
-        context["goal"] = "other" # Set select value to 'other'
-    else:
-        context["goal_other_text"] = "" # Clear other text if not selected
+        raw_main_val = current_raw_data.get(field_name)
+        raw_other_text = current_raw_data.get(other_text_field_name)
 
-    # --- Handle 'other' logic for Genre ---
-    current_genre = context.get("genre_tone")
-    genre_is_other = current_genre is not None and current_genre not in PREDEFINED_GENRES
-    context["is_genre_other_selected"] = genre_is_other
-    if genre_is_other:
-        context["genre_tone_other_text"] = current_genre
-        context["genre_tone"] = "other"
-    else:
-        context["genre_tone_other_text"] = ""
+        if raw_main_val == "other" and raw_other_text: # 'other' selected, and text provided
+            actual_value = raw_other_text.strip()
+            select_value_for_ui = "other"
+            other_text_for_ui = actual_value
+        elif raw_main_val and raw_main_val not in predefined_list and raw_main_val != "other": # Custom value directly in main field
+            actual_value = raw_main_val.strip()
+            select_value_for_ui = "other"
+            other_text_for_ui = actual_value
+        elif raw_main_val in predefined_list: # Predefined value
+            actual_value = raw_main_val
+            select_value_for_ui = raw_main_val
+            other_text_for_ui = ""
+        elif raw_main_val == "other" and not raw_other_text: # 'other' selected, but no text yet
+            actual_value = None # Or "" - decide how to handle this for saving. Let's say None.
+            select_value_for_ui = "other"
+            other_text_for_ui = ""
+        # If raw_main_val is None or empty, actual_value will remain None (or default from DEFAULT_CONTEXT later)
 
-    # --- Handle 'other' logic for System ---
-    current_system = context.get("game_system")
-    system_is_other = current_system is not None and current_system not in PREDEFINED_SYSTEMS
-    context["is_system_other_selected"] = system_is_other
-    if system_is_other:
-        context["game_system_other_text"] = current_system
-        context["game_system"] = "other"
-    else:
-        context["game_system_other_text"] = ""
+        return actual_value, select_value_for_ui, other_text_for_ui
 
-    # Pass predefined lists to template
+    # Resolve Goal
+    goal_actual, goal_select, goal_other = _resolve_field(
+        "goal", "goal_other_text", PREDEFINED_GOALS, raw_data
+    )
+    if goal_actual is not None: context["goal_actual_value"] = goal_actual
+    context["goal_select_value"] = goal_select if goal_select is not None else context.get("goal", PREDEFINED_GOALS[0]) # Fallback to default context or first predefined
+    context["goal_other_text"] = goal_other
+
+    # Resolve Genre/Tone
+    genre_actual, genre_select, genre_other = _resolve_field(
+        "genre_tone", "genre_tone_other_text", PREDEFINED_GENRES, raw_data
+    )
+    if genre_actual is not None: context["genre_tone_actual_value"] = genre_actual
+    context["genre_tone_select_value"] = genre_select if genre_select is not None else context.get("genre_tone", PREDEFINED_GENRES[0])
+    context["genre_tone_other_text"] = genre_other
+    
+    # Resolve Game System
+    system_actual, system_select, system_other = _resolve_field(
+        "game_system", "game_system_other_text", PREDEFINED_SYSTEMS, raw_data
+    )
+    if system_actual is not None: context["game_system_actual_value"] = system_actual
+    context["game_system_select_value"] = system_select if system_select is not None else context.get("game_system", PREDEFINED_SYSTEMS[0])
+    context["game_system_other_text"] = system_other
+
+    # Apply resolved actual values to the main keys if they were resolved
+    # These are what will be used by hidden fields to carry state if the field isn't editable in current step
+    if "goal_actual_value" in context: context["goal"] = context["goal_actual_value"]
+    if "genre_tone_actual_value" in context: context["genre_tone"] = context["genre_tone_actual_value"]
+    if "game_system_actual_value" in context: context["game_system"] = context["game_system_actual_value"]
+    
+    # Handle key_details and conversation_id directly
+    context["key_details"] = raw_data.get("key_details", context.get("key_details", ""))
+    conv_id_val = raw_data.get("conversation_id")
+    context["conversation_id"] = int(conv_id_val) if conv_id_val and str(conv_id_val).isdigit() else None
+
+    # Pass predefined lists
     context["predefined_goals"] = PREDEFINED_GOALS
     context["predefined_genres"] = PREDEFINED_GENRES
     context["predefined_systems"] = PREDEFINED_SYSTEMS
-
+    
+    logger.debug(f"Prepared context for template from raw_data {raw_data}: {context}")
     return context
 
+# In your get_setup_for_edit endpoint:
+# incoming_context_from_db = conversation.context_data or {}
+# incoming_context_from_db["conversation_id"] = conversation_id
+# context_to_pass = prepare_context_for_template(incoming_context_from_db)
+
+# In your get_setup_fragment endpoint:
+# incoming_context_from_query = dict(request.query_params)
+# incoming_context_from_query.pop("section", None)
+# context_to_pass = prepare_context_for_template(incoming_context_from_query)
 # --- Endpoints ---
 
 @router.get("/start", response_class=HTMLResponse)
 async def get_setup_start(request: Request, user: PropelUser = Depends(safe_require_user)):
     """Returns the initial HTML fragment for Step 1 (Goal)."""
     logger.info(f"User {user.user_id}: GET /start - New chat context setup.")
-    # Prepare context using the helper
+    # Start fresh with defaults. prepare_context_for_template will use DEFAULT_CONTEXT
+    # as its base and then apply the empty dict, essentially returning defaults.
+    # Crucially, it will also set the *_select_value, *_other_text, and *_actual_value fields.
     context_to_pass = prepare_context_for_template({"conversation_id": None}) # Start fresh
     template_name = f"chat_setup/{SETUP_SECTIONS['goal']}"
     return templates.TemplateResponse(template_name, {"request": request, "context": context_to_pass})
@@ -197,13 +234,19 @@ async def get_setup_for_edit(
     conversation = db.exec(select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == db_user.id, Conversation.is_active == True)).first()
     if not conversation: raise HTTPException(status_code=404, detail="Conversation not found.")
 
-    # Start with empty dict, update with saved, then prepare using helper
-    incoming_context = {}
+    # Start with empty dict, update with saved context_data
+    # The context_data from DB should contain the *actual* custom values if 'other' was used.
+    incoming_context_from_db = {}
     if isinstance(conversation.context_data, dict):
-        incoming_context.update(conversation.context_data)
-    incoming_context["conversation_id"] = conversation_id # Ensure ID is passed
+        incoming_context_from_db.update(conversation.context_data)
+    
+    # IMPORTANT: Ensure conversation_id is part of the context being passed to prepare_context_for_template
+    incoming_context_from_db["conversation_id"] = conversation_id 
 
-    context_to_pass = prepare_context_for_template(incoming_context)
+    # The prepare_context_for_template function will then correctly identify
+    # if the values in goal, genre_tone, game_system are custom (not in predefined)
+    # and set the 'other_text' fields and select 'other' for the dropdown.
+    context_to_pass = prepare_context_for_template(incoming_context_from_db)
 
     logger.debug(f"Editing context loaded and prepared for convo {conversation_id}: {context_to_pass}")
     template_name = f"chat_setup/{SETUP_SECTIONS['goal']}" # Always start edit from Goal step
@@ -216,36 +259,60 @@ async def save_setup_context(
     user: PropelUser = Depends(safe_require_user),
     db: Session = Depends(get_session)
 ):
-    """
-    Saves context, generates system prompt, creates/updates Conversation.
-    IF CREATING: If key_details exist and user has credit, generates the first
-                 User/AI message pair.
-    On success, returns 204 No Content with HX-Trigger header.
-    """
     form_data = await request.form()
     form_dict = {k: form_data.getlist(k)[-1] for k in form_data.keys()}
     logger.info(f"User {user.user_id}: POST /save context data.")
-    logger.debug(f"Received raw form data: {form_dict}")
+    logger.debug(f"Received raw form data for save: {form_dict}")
 
-    db_user = get_or_create_db_user(user, db)
-    if not db_user: raise HTTPException(status_code=500, detail="User data error.")
+    db_user = get_or_create_db_user(user, db) # ... error check ...
 
-    conversation_id_str = form_dict.pop("conversation_id", None)
+    conversation_id_str = form_dict.get("conversation_id") # Corrected: use .get()
     conversation_id = int(conversation_id_str) if conversation_id_str and conversation_id_str.isdigit() else None
 
-    # --- Process Form Data into final_context (Keep Existing Logic) ---
     final_context = {}
-    goal = form_dict.get("goal"); goal_other = form_dict.get("goal_other_text", "").strip()
-    if goal == "other" and goal_other: final_context["goal"] = goal_other
-    elif goal and goal != "other": final_context["goal"] = goal
-    genre = form_dict.get("genre_tone"); genre_other = form_dict.get("genre_tone_other_text", "").strip()
-    if genre == "other" and genre_other: final_context["genre_tone"] = genre_other
-    elif genre and genre != "other": final_context["genre_tone"] = genre
-    system = form_dict.get("game_system"); system_other = form_dict.get("game_system_other_text", "").strip()
-    if system == "other" and system_other: final_context["game_system"] = system_other
-    elif system and system != "other": final_context["game_system"] = system
+
+    # Process Goal
+    goal_select_val = form_dict.get("goal") # This is from the <select> name="goal"
+    goal_other_text_val = form_dict.get("goal_other_text", "").strip()
+    if goal_select_val == "other" and goal_other_text_val:
+        final_context["goal"] = goal_other_text_val
+    elif goal_select_val and goal_select_val != "other":
+        final_context["goal"] = goal_select_val
+    # If goal_select_val is "other" but goal_other_text_val is empty, goal is effectively not set from this step
+    # However, _step_context.html has a hidden input: <input type="hidden" name="goal" value="{{ context.get('goal_actual_value', ...) }}">
+    # This hidden input will provide the actual goal if it was set in the previous step.
+    # The `form_dict` logic `{k: form_data.getlist(k)[-1] ...}` takes the LAST value.
+    # So, if both a select `name="goal"` and hidden `name="goal"` exist, the hidden one might be ignored if it's not last.
+    # This is why the hidden input in _step_context.html for goal is crucial and must be named `goal`.
+
+    # Revised processing for final_context:
+    # The hidden input `name="goal"` in `_step_context.html` should provide the resolved goal.
+    # The select/other_text for genre/system are directly on `_step_context.html`.
+    
+    resolved_goal = form_dict.get("goal") # This should be the actual_value from the hidden field in _step_context
+    if resolved_goal:
+        final_context["goal"] = resolved_goal
+
+    # Process Genre & Tone (editable in _step_context)
+    genre_select_val = form_dict.get("genre_tone")
+    genre_other_text_val = form_dict.get("genre_tone_other_text", "").strip()
+    if genre_select_val == "other" and genre_other_text_val:
+        final_context["genre_tone"] = genre_other_text_val
+    elif genre_select_val and genre_select_val != "other":
+        final_context["genre_tone"] = genre_select_val
+
+    # Process Game System (editable in _step_context)
+    system_select_val = form_dict.get("game_system")
+    system_other_text_val = form_dict.get("game_system_other_text", "").strip()
+    if system_select_val == "other" and system_other_text_val:
+        final_context["game_system"] = system_other_text_val
+    elif system_select_val and system_select_val != "other":
+        final_context["game_system"] = system_select_val
+        
     key_details = form_dict.get("key_details", "").strip()
-    if key_details: final_context["key_details"] = key_details
+    if key_details:
+        final_context["key_details"] = key_details
+
     logger.debug(f"Processed context data to save: {final_context}")
 
     # --- Generate System Prompt (Keep Existing Logic) ---

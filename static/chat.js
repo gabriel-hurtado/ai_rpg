@@ -1220,5 +1220,68 @@ console.log("[Chat Main] HTMX configRequest listener setup.");
   console.log("[Chat Main] DOM Ready setup complete. Waiting for auth module to initialize chat.");
 });
 
-// Remove standalone call: ChatManager.setupEventListeners(); // This was incorrect
-// Remove commented export: // export default ChatManager;
+
+/**
+ * Toggles the visibility of an "other" text input field based on a select element's value.
+ * @param {string} selectElementId - The ID of the <select> element.
+ * @param {string} otherWrapperId - The ID of the <div> wrapping the "other" text input.
+ * @param {string} otherInputId - The ID of the "other" <input type="text"> element.
+ */
+if (typeof window.toggleOtherFieldVisibility !== 'function') { // Define only if not already defined
+  window.toggleOtherFieldVisibility = function(selectElementId, otherWrapperId, otherInputId) {
+      const selectElement = document.getElementById(selectElementId);
+      const otherWrapper = document.getElementById(otherWrapperId);
+      const otherInput = document.getElementById(otherInputId); // Optional: for focusing or clearing
+
+      if (!selectElement || !otherWrapper) {
+          // console.warn("Toggle elements not found for select:", selectElementId, "or wrapper:", otherWrapperId);
+          return;
+      }
+
+      if (selectElement.value === 'other') {
+          otherWrapper.classList.remove('d-none');
+          // if (otherInput) otherInput.focus(); // Optional
+      } else {
+          otherWrapper.classList.add('d-none');
+          // if (otherInput) otherInput.value = ''; // Optional: clear if hiding and you want this behavior
+      }
+  };
+}
+
+// static/chat.js
+document.body.addEventListener('htmx:configRequest', function(evt) {
+  const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
+  let requestPath = evt.detail.path; // Path or full URL
+  const targetElement = evt.detail.elt;
+
+  // Attempt to get a relative path if it's an absolute URL for the current host
+  let isApiRequest = false;
+  try {
+      const url = new URL(requestPath, window.location.origin); // Resolve against current origin
+      if (url.origin === window.location.origin && url.pathname.startsWith('/api/v1/')) {
+          isApiRequest = true;
+          requestPath = url.pathname + url.search + url.hash; // Log the relative part for clarity
+      } else if (!requestPath.includes('://') && requestPath.startsWith('/api/v1/')) {
+          // It's already a relative path starting with /api/v1/
+          isApiRequest = true;
+      }
+  } catch (e) {
+      // If requestPath is not a valid URL (e.g., already relative), check it directly
+      if (requestPath.startsWith('/api/v1/')) {
+          isApiRequest = true;
+      }
+      // console.warn("[HTMX Config] Error parsing requestPath as URL, falling back to direct check:", e);
+  }
+
+  console.log(`[HTMX Config] Processing request to: ${evt.detail.path}. Relative path for API check: ${requestPath}. Is API: ${isApiRequest}. Triggered by:`, targetElement);
+  console.log(`[HTMX Config] Current Access Token: ${token ? 'Token Present' : 'NO TOKEN'}`);
+
+  if (token && isApiRequest) {
+      evt.detail.headers['Authorization'] = `Bearer ${token}`;
+      console.log(`[HTMX Config] Added Auth header to: ${evt.detail.path}`);
+  } else if (!token && isApiRequest) {
+       console.warn(`[HTMX Config] No token found for API request: ${evt.detail.path}. Request will likely fail with 401.`);
+  } else {
+      console.log(`[HTMX Config] No Auth header added (isApiRequest: ${isApiRequest}, tokenPresent: ${!!token}) for: ${evt.detail.path}`);
+  }
+});

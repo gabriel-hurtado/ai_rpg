@@ -153,10 +153,12 @@ async def chat_message_stream(
 
     db_user = get_or_create_db_user(user, db)
     if not db_user: raise HTTPException(status_code=500, detail="User data error.")
-
+    
+    # Pass db_user.id instead of the db_user object to stream_and_save
+    current_db_user_id = db_user.id # <<< STORE THE ID
     has_credit, reason = check_credit_status(db_user)
     if not has_credit:
-        logger.warning(f"Credit check failed for user {db_user.id}: {reason}")
+        logger.warning(f"Credit check failed for user {current_db_user_id}: {reason}")
         raise HTTPException(status_code=402, detail=f"Payment Required: {reason}")
 
     conversation = None
@@ -312,8 +314,7 @@ async def chat_message_stream(
 
 
         # --- Return Streaming Response ---
-        response = StreamingResponse(stream_and_save(user_message_id), media_type="text/plain") # Or maybe text/event-stream? Plain is simple.
-        # Set headers collected during processing
+        response = StreamingResponse(stream_and_save(user_message_id, current_db_user_id), media_type="text/plain") # <<< PASS current_db_user_id# Set headers collected during processing
         for k, v in response_headers.items(): response.headers[k] = v
         return response
 

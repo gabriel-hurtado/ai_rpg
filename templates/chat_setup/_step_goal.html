@@ -1,110 +1,77 @@
-<!-- templates/chat_setup/_step_goal.html -->
 {# This fragment replaces the content of #modal-content-area #}
-<div class="d-flex p-3"> {# Add padding here instead of modal-body #}
+<div class="d-flex p-3">
 
     <!-- === Modal Navigation (Sidebar) === -->
     <div class="modal-nav flex-shrink-0 pe-3 me-3 border-end border-secondary" style="width: 180px;">
         <p class="text-muted small mb-2 fw-bold text-uppercase">CONTEXT</p>
         <nav class="nav flex-column nav-pills">
-            <button type="button" class="nav-link active text-start mb-1" aria-current="page" disabled> {# Active & Disabled #}
+            <button type="button" class="nav-link active text-start mb-1" aria-current="page" disabled>
                <i class="bi bi-bullseye me-2"></i>Goal
             </button>
             <button type="button" class="nav-link text-start mb-1"
-                    hx-get="/api/v1/chat/setup/fragment?section=context"
+                    hx-get="{{ url_for('get_setup_fragment') }}" {# Use url_for for robust URL generation #}
+                    hx-vals='{"section": "context"}' {# Explicitly send section #}
                     hx-target="#modal-content-area"
-                    hx-include="#context-setup-form" >
+                    hx-include="#context-setup-form" {# Include all values from this form #}
+                    hx-swap="innerHTML">
                 <i class="bi bi-pencil-square me-2"></i>Context Details
             </button>
-            {# Add other nav items if you break down context further #}
         </nav>
     </div>
 
     <!-- === Modal Step Content Area === -->
-    <div class="modal-step-content flex-grow-1" id="modal-step-content">
+    <div class="modal-step-content flex-grow-1" id="modal-step-content-goal"> {# Unique ID if needed #}
         <form id="context-setup-form" autocomplete="off">
-            {# Hidden fields first #}
-            <input type="hidden" name="conversation_id" value="{{ context.get('conversation_id') }}">
-            {# Pass other context keys if they exist (they will on subsequent loads) #}
-            <input type="hidden" name="genre_tone" value="{{ context.get('genre_tone', '') }}">
-            <input type="hidden" name="game_system" value="{{ context.get('game_system', '') }}">
+            {# --- Hidden Fields --- #}
+            {# These carry state from DB/initial load or from other steps when navigating #}
+            <input type="hidden" name="conversation_id" value="{{ context.get('conversation_id', '') }}">
+
+            {# These hidden fields carry the *actual resolved values* from previous steps or DB load #}
+            {# to the next step (context details) #}
+            <input type="hidden" name="genre_tone" value="{{ context.get('genre_tone_actual_value', context.get('genre_tone', '')) }}">
+            <input type="hidden" name="game_system" value="{{ context.get('game_system_actual_value', context.get('game_system', '')) }}">
             <input type="hidden" name="key_details" value="{{ context.get('key_details', '') }}">
+            {# The 'goal' itself will be determined by the select/text input below for this step #}
+
 
             {# --- Inputs for THIS step (Goal) --- #}
             <h6 class="mb-3 fw-bold"><i class="bi bi-bullseye me-2"></i>Primary Goal</h6>
             <div class="mb-3">
-                <label for="context-goal" class="form-label small text-muted">What kind of content do you primarily want to generate?</label>
-                {% set current_goal = context.get('goal', '') %}
-                {% set predefined_goals = ['describe_location', 'create_npc', 'create_monster', 'create_item', 'create_encounter', 'refine_text', 'charsheet'] %}
-                {% set is_other_selected = current_goal and current_goal not in predefined_goals %}
-
-                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="context-goal" name="goal" required
-                        onchange="toggleOtherGoal(this.value)">
-                    {# Add a default empty option if desired, otherwise the first is selected by default #}
-                    {# <option value="" {% if not current_goal %}selected{% endif %} disabled>Select a goal...</option> #}
-                    <option value="describe_location" {% if current_goal == 'describe_location' %}selected{% endif %}>Describe Location/Scene</option>
-                    <option value="create_npc" {% if current_goal == 'create_npc' %}selected{% endif %}>Create NPC</option>
-                    <option value="create_monster" {% if current_goal == 'create_monster' %}selected{% endif %}>Create Monster</option>
-                    <option value="create_item" {% if current_goal == 'create_item' %}selected{% endif %}>Create Magic Item</option>
-                    <option value="create_encounter" {% if current_goal == 'create_encounter' %}selected{% endif %}>Design Encounter/Plot Hook</option>
-                    <option value="refine_text" {% if current_goal == 'refine_text' %}selected{% endif %}>Refine Existing Text</option>
-                    <option value="charsheet" {% if current_goal == 'charsheet' %}selected{% endif %}>Generate Character Sheets</option>
-                    <option value="other" {% if is_other_selected %}selected{% endif %}>Other (Please specify)</option> {# Add "Other" option #}
+                <label for="context-goal-select" class="form-label small text-muted">What kind of content do you primarily want to generate?</label>
+                <select class="form-select form-select-sm bg-dark text-light border-secondary"
+                        id="context-goal-select"
+                        name="goal" {# This select submits 'goal=other' or 'goal=predefined_value' #}
+                        required
+                        onchange="window.toggleOtherFieldVisibility('context-goal-select', 'other-goal-wrapper', 'context-goal-other-text')">
+                    {% for g_val in context.get('predefined_goals', []) %}
+                        <option value="{{ g_val }}" {% if context.get('goal_select_value') == g_val %}selected{% endif %}>{{ g_val.replace('_', ' ').title() }}</option>
+                    {% endfor %}
+                    <option value="other" {% if context.get('goal_select_value') == 'other' %}selected{% endif %}>Other (Please specify)</option>
                 </select>
             </div>
 
-            {# --- Input for "Other" Goal (Initially Hidden) --- #}
-            <div class="mb-3 {% if not is_other_selected %}d-none{% endif %}" id="other-goal-wrapper"> {# Hide if not initially selected #}
+            {# Input for "Other" Goal #}
+            <div class="mb-3 {% if context.get('goal_select_value') != 'other' %}d-none{% endif %}" id="other-goal-wrapper">
                 <label for="context-goal-other-text" class="form-label small text-muted">Specify your goal:</label>
                 <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary"
                        id="context-goal-other-text"
-                       name="goal_other_text"
+                       name="goal_other_text" {# This input submits the custom goal text #}
                        placeholder="e.g., Brainstorm quest ideas"
-                       value="{{ current_goal if is_other_selected else '' }}"> {# Pre-fill if needed #}
+                       value="{{ context.get('goal_other_text', '') }}">
             </div>
 
             {# --- Footer Buttons within the fragment --- #}
             <div class="modal-footer-fragment border-top border-secondary pt-3 mt-4 d-flex justify-content-between">
                  <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                  <button type="button" class="btn btn-info btn-sm"
-                         hx-get="/api/v1/chat/setup/fragment?section=context"
+                         hx-get="{{ url_for('get_setup_fragment') }}"
+                         hx-vals='{"section": "context"}'
                          hx-target="#modal-content-area"
-                         hx-swap="innerHTML" {# Replace whole content area #}
-                         hx-include="closest form">
+                         hx-swap="innerHTML"
+                         hx-include="closest form"> {# Includes goal, goal_other_text, and all hidden fields #}
                      Next: Context Details »
                  </button>
             </div>
         </form> {# End form #}
-
-        {# Inline script to handle the toggle logic. Could be moved to a separate JS file. #}
-        <script>
-            function toggleOtherGoal(selectedValue) {
-                const otherWrapper = document.getElementById('other-goal-wrapper');
-                const otherInput = document.getElementById('context-goal-other-text');
-                if (selectedValue === 'other') {
-                    otherWrapper.classList.remove('d-none'); // Show the wrapper
-                    // Optional: Focus the input when it becomes visible
-                    // otherInput.focus();
-                } else {
-                    otherWrapper.classList.add('d-none'); // Hide the wrapper
-                    otherInput.value = ''; // Clear the input when hiding
-                }
-            }
-
-            // Ensure the initial state is correct when the fragment loads
-            // (This is mainly handled by Jinja adding/removing d-none initially,
-            // but this ensures consistency if the JS runs after initial render)
-            document.addEventListener('DOMContentLoaded', function() {
-                 const initialValue = document.getElementById('context-goal').value;
-                 // No need to call toggleOtherGoal here if Jinja handles initial class
-                 // toggleOtherGoal(initialValue);
-            });
-
-            // If using htmx and swapping content, you might need to re-run
-            // the initial check *after* the swap if Jinja isn't sufficient.
-            // However, the Jinja logic should handle the initial state correctly
-            // upon loading the fragment. The onchange handler covers user interaction.
-
-        </script>
-
     </div> {# End step content #}
 </div> {# End d-flex #}
