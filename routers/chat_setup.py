@@ -73,72 +73,81 @@ DEFAULT_CONTEXT = {
 }
 
 INITIAL_PROMPT = "Give me an overview of what you will help me do."
+# routers/chat_setup.py
 
-# --- Helper Function (Optional but Recommended) ---
 def prepare_context_for_template(raw_data: Dict[str, Any]) -> Dict[str, Any]:
-    context = DEFAULT_CONTEXT.copy() # Start with global defaults
+    # Create a new context, initially populated by deep copying DEFAULT_CONTEXT
+    # to ensure all keys from DEFAULT_CONTEXT are present.
+    context = {k: v for k, v in DEFAULT_CONTEXT.items()}
 
     # Helper to resolve the actual value and select/other_text for UI
-    def _resolve_field(field_name: str, other_text_field_name: str, predefined_list: list, current_raw_data: dict):
+    def _resolve_field(field_key: str, other_text_key: str, predefined_list: list, current_raw_data: dict, default_predefined_value: str):
         actual_value = None
-        select_value_for_ui = None
+        select_value_for_ui = default_predefined_value # Start with default
         other_text_for_ui = ""
 
-        raw_main_val = current_raw_data.get(field_name)
-        raw_other_text = current_raw_data.get(other_text_field_name)
+        raw_main_val = current_raw_data.get(field_key)
+        raw_other_text = current_raw_data.get(other_text_key)
 
-        if raw_main_val == "other" and raw_other_text: # 'other' selected, and text provided
+        # Path 1: 'other' selected in dropdown, and text provided in other_text field
+        if raw_main_val == "other" and raw_other_text and raw_other_text.strip():
             actual_value = raw_other_text.strip()
             select_value_for_ui = "other"
             other_text_for_ui = actual_value
-        elif raw_main_val and raw_main_val not in predefined_list and raw_main_val != "other": # Custom value directly in main field
+        # Path 2: A custom value is directly in the main field (e.g., from DB save)
+        elif raw_main_val and raw_main_val not in predefined_list and raw_main_val != "other":
             actual_value = raw_main_val.strip()
             select_value_for_ui = "other"
             other_text_for_ui = actual_value
-        elif raw_main_val in predefined_list: # Predefined value
+        # Path 3: A predefined value is in the main field
+        elif raw_main_val and raw_main_val in predefined_list:
             actual_value = raw_main_val
             select_value_for_ui = raw_main_val
             other_text_for_ui = ""
-        elif raw_main_val == "other" and not raw_other_text: # 'other' selected, but no text yet
-            actual_value = None # Or "" - decide how to handle this for saving. Let's say None.
+        # Path 4: 'other' is in the main field (e.g. from DB save where no custom text was given for 'other'),
+        # or 'other' selected in dropdown but no text yet in other_text field.
+        elif raw_main_val == "other": 
+            actual_value = "other" # Store "other" itself if no custom text was provided for it
             select_value_for_ui = "other"
-            other_text_for_ui = ""
-        # If raw_main_val is None or empty, actual_value will remain None (or default from DEFAULT_CONTEXT later)
+            other_text_for_ui = "" # No custom text to display
+        # Path 5: No relevant value in raw_data, actual_value remains None (will use default_predefined_value)
+        
+        # If actual_value is still None after checks, it means we should use the default predefined value
+        if actual_value is None:
+            actual_value = default_predefined_value # This ensures actual_value is never None if a default exists
+            # select_value_for_ui is already set to default_predefined_value
 
         return actual_value, select_value_for_ui, other_text_for_ui
 
     # Resolve Goal
     goal_actual, goal_select, goal_other = _resolve_field(
-        "goal", "goal_other_text", PREDEFINED_GOALS, raw_data
+        "goal", "goal_other_text", PREDEFINED_GOALS, raw_data, DEFAULT_CONTEXT["goal"]
     )
-    if goal_actual is not None: context["goal_actual_value"] = goal_actual
-    context["goal_select_value"] = goal_select if goal_select is not None else context.get("goal", PREDEFINED_GOALS[0]) # Fallback to default context or first predefined
+    context["goal_actual_value"] = goal_actual
+    context["goal_select_value"] = goal_select
     context["goal_other_text"] = goal_other
+    context["goal"] = goal_actual # For hidden field carry-over
 
     # Resolve Genre/Tone
     genre_actual, genre_select, genre_other = _resolve_field(
-        "genre_tone", "genre_tone_other_text", PREDEFINED_GENRES, raw_data
+        "genre_tone", "genre_tone_other_text", PREDEFINED_GENRES, raw_data, DEFAULT_CONTEXT["genre_tone"]
     )
-    if genre_actual is not None: context["genre_tone_actual_value"] = genre_actual
-    context["genre_tone_select_value"] = genre_select if genre_select is not None else context.get("genre_tone", PREDEFINED_GENRES[0])
+    context["genre_tone_actual_value"] = genre_actual
+    context["genre_tone_select_value"] = genre_select
     context["genre_tone_other_text"] = genre_other
-    
+    context["genre_tone"] = genre_actual # For hidden field carry-over
+
     # Resolve Game System
     system_actual, system_select, system_other = _resolve_field(
-        "game_system", "game_system_other_text", PREDEFINED_SYSTEMS, raw_data
+        "game_system", "game_system_other_text", PREDEFINED_SYSTEMS, raw_data, DEFAULT_CONTEXT["game_system"]
     )
-    if system_actual is not None: context["game_system_actual_value"] = system_actual
-    context["game_system_select_value"] = system_select if system_select is not None else context.get("game_system", PREDEFINED_SYSTEMS[0])
+    context["game_system_actual_value"] = system_actual
+    context["game_system_select_value"] = system_select
     context["game_system_other_text"] = system_other
-
-    # Apply resolved actual values to the main keys if they were resolved
-    # These are what will be used by hidden fields to carry state if the field isn't editable in current step
-    if "goal_actual_value" in context: context["goal"] = context["goal_actual_value"]
-    if "genre_tone_actual_value" in context: context["genre_tone"] = context["genre_tone_actual_value"]
-    if "game_system_actual_value" in context: context["game_system"] = context["game_system_actual_value"]
+    context["game_system"] = system_actual # For hidden field carry-over
     
     # Handle key_details and conversation_id directly
-    context["key_details"] = raw_data.get("key_details", context.get("key_details", ""))
+    context["key_details"] = raw_data.get("key_details", DEFAULT_CONTEXT["key_details"])
     conv_id_val = raw_data.get("conversation_id")
     context["conversation_id"] = int(conv_id_val) if conv_id_val and str(conv_id_val).isdigit() else None
 
@@ -147,8 +156,9 @@ def prepare_context_for_template(raw_data: Dict[str, Any]) -> Dict[str, Any]:
     context["predefined_genres"] = PREDEFINED_GENRES
     context["predefined_systems"] = PREDEFINED_SYSTEMS
     
-    logger.debug(f"Prepared context for template from raw_data {raw_data}: {context}")
+    logger.debug(f"Prepared context from raw_data '{raw_data}': {context}")
     return context
+
 
 # In your get_setup_for_edit endpoint:
 # incoming_context_from_db = conversation.context_data or {}
@@ -253,6 +263,10 @@ async def get_setup_for_edit(
     return templates.TemplateResponse(template_name, {"request": request, "context": context_to_pass})
 
 # --- MODIFIED SAVE ENDPOINT ---
+# routers/chat_setup.py
+
+# ... imports ...
+
 @router.post("/save", status_code=204)
 async def save_setup_context(
     request: Request,
@@ -260,222 +274,243 @@ async def save_setup_context(
     db: Session = Depends(get_session)
 ):
     form_data = await request.form()
+    # Get the last value if a key appears multiple times (e.g., hidden + select with same name)
     form_dict = {k: form_data.getlist(k)[-1] for k in form_data.keys()}
     logger.info(f"User {user.user_id}: POST /save context data.")
-    logger.debug(f"Received raw form data for save: {form_dict}")
+    logger.debug(f"FULL FORM DICT FOR SAVE: {form_dict}")
 
-    db_user = get_or_create_db_user(user, db) # ... error check ...
+    db_user = get_or_create_db_user(user, db)
+    if not db_user:
+        logger.error(f"User {user.user_id}: Could not get or create DB user.")
+        raise HTTPException(status_code=500, detail="User data error.")
 
-    conversation_id_str = form_dict.get("conversation_id") # Corrected: use .get()
+    conversation_id_str = form_dict.get("conversation_id")
     conversation_id = int(conversation_id_str) if conversation_id_str and conversation_id_str.isdigit() else None
 
-    final_context = {}
+    # --- Process Form Data into final_context ---
+    final_context: Dict[str, Any] = {} # Ensure type hint for clarity
 
-    # Process Goal
-    goal_select_val = form_dict.get("goal") # This is from the <select> name="goal"
-    goal_other_text_val = form_dict.get("goal_other_text", "").strip()
-    if goal_select_val == "other" and goal_other_text_val:
-        final_context["goal"] = goal_other_text_val
-    elif goal_select_val and goal_select_val != "other":
-        final_context["goal"] = goal_select_val
-    # If goal_select_val is "other" but goal_other_text_val is empty, goal is effectively not set from this step
-    # However, _step_context.html has a hidden input: <input type="hidden" name="goal" value="{{ context.get('goal_actual_value', ...) }}">
-    # This hidden input will provide the actual goal if it was set in the previous step.
-    # The `form_dict` logic `{k: form_data.getlist(k)[-1] ...}` takes the LAST value.
-    # So, if both a select `name="goal"` and hidden `name="goal"` exist, the hidden one might be ignored if it's not last.
-    # This is why the hidden input in _step_context.html for goal is crucial and must be named `goal`.
-
-    # Revised processing for final_context:
-    # The hidden input `name="goal"` in `_step_context.html` should provide the resolved goal.
-    # The select/other_text for genre/system are directly on `_step_context.html`.
-    
-    resolved_goal = form_dict.get("goal") # This should be the actual_value from the hidden field in _step_context
+    # Goal: Assumed to come from a hidden input name="goal" in _step_context.html
+    # This hidden input should contain the resolved goal (e.g., "My Custom Goal" or "create_npc")
+    resolved_goal = form_dict.get("goal", "").strip()
     if resolved_goal:
         final_context["goal"] = resolved_goal
 
-    # Process Genre & Tone (editable in _step_context)
-    genre_select_val = form_dict.get("genre_tone")
-    genre_other_text_val = form_dict.get("genre_tone_other_text", "").strip()
-    if genre_select_val == "other" and genre_other_text_val:
-        final_context["genre_tone"] = genre_other_text_val
-    elif genre_select_val and genre_select_val != "other":
-        final_context["genre_tone"] = genre_select_val
+    # Genre & Tone: From select name="genre_tone" and input name="genre_tone_other_text"
+    genre_select_from_form = form_dict.get("genre_tone")
+    genre_other_text_from_form = form_dict.get("genre_tone_other_text", "").strip()
+    if genre_select_from_form == "other" and genre_other_text_from_form:
+        final_context["genre_tone"] = genre_other_text_from_form
+    elif genre_select_from_form == "other": # "other" selected, but no custom text provided
+        final_context["genre_tone"] = "other" # Store "other" literally
+    elif genre_select_from_form and genre_select_from_form not in ["", "None", None]: # Predefined value selected
+        final_context["genre_tone"] = genre_select_from_form
+    # If not provided, genre_tone might be omitted or you can set a default if desired.
 
-    # Process Game System (editable in _step_context)
-    system_select_val = form_dict.get("game_system")
-    system_other_text_val = form_dict.get("game_system_other_text", "").strip()
-    if system_select_val == "other" and system_other_text_val:
-        final_context["game_system"] = system_other_text_val
-    elif system_select_val and system_select_val != "other":
-        final_context["game_system"] = system_select_val
-        
+    # Game System: From select name="game_system" and input name="game_system_other_text"
+    system_select_from_form = form_dict.get("game_system")
+    system_other_text_from_form = form_dict.get("game_system_other_text", "").strip()
+    if system_select_from_form == "other" and system_other_text_from_form:
+        final_context["game_system"] = system_other_text_from_form
+    elif system_select_from_form == "other": # "other" selected, but no custom text
+        final_context["game_system"] = "other" # Store "other" literally
+    elif system_select_from_form and system_select_from_form not in ["", "None", None]: # Predefined value selected
+        final_context["game_system"] = system_select_from_form
+    # If not provided, game_system might be omitted.
+
     key_details = form_dict.get("key_details", "").strip()
     if key_details:
         final_context["key_details"] = key_details
 
-    logger.debug(f"Processed context data to save: {final_context}")
+    logger.debug(f"Processed context data TO SAVE: {final_context}")
 
-    # --- Generate System Prompt (Keep Existing Logic) ---
+    if not final_context.get("goal"): # Basic validation: a goal is usually good to have
+        logger.warning("No goal was resolved from the form data. Context might be incomplete.")
+        # Optionally, raise HTTPException or set a default goal
+        # For now, proceed with potentially missing goal
+
+    # --- Generate System Prompt ---
     logger.info("Generating tailored system prompt instructions from context via AI...")
     generated_prompt_instructions = await generate_system_prompt_from_context(final_context)
-    effective_system_prompt = BASE_SYSTEM_PROMPT
-    if generated_prompt_instructions:
+
+    effective_system_prompt = BASE_SYSTEM_PROMPT  # Initialize with base
+    if generated_prompt_instructions and not generated_prompt_instructions.startswith("**Error:**"):
         effective_system_prompt += "\n\n## Session Focus:\n" + generated_prompt_instructions
         logger.info(f"Using combined system prompt. Length: {len(effective_system_prompt)}")
     else:
-        logger.warning("AI system prompt generation failed or context insufficient. Using only base system prompt.")
+        if generated_prompt_instructions: # It means it was an error string from the AI service
+             logger.error(f"AI system prompt generation returned an error: {generated_prompt_instructions}")
+        logger.warning("AI system prompt generation failed, context insufficient, or error returned. Using only base system prompt.")
 
     trigger_payload = {}
-    initial_messages_generated = False # Flag for HX-Trigger
+    initial_messages_generated = False
+    # Variables to hold details of a newly created conversation
+    created_conversation_id: Optional[int] = None
+    created_conversation_title: str = "Untitled Conversation" # Default
+    created_conversation_object: Optional[Conversation] = None
+
 
     try:
-        if conversation_id: # --- Editing ---
-            # (Keep existing update logic - no initial message generation on edit)
+        if conversation_id:  # --- Editing Existing Conversation ---
             logger.info(f"Updating context for existing conversation ID: {conversation_id}")
-            conversation = db.exec(select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == db_user.id, Conversation.is_active == True)).first()
-            if not conversation: raise HTTPException(status_code=404, detail="Conversation not found for update.")
-            conversation.context_data = final_context or None
-            conversation.system_prompt_override = effective_system_prompt
-            conversation.updated_at = datetime.now(timezone.utc)
-            db.add(conversation); db.commit()
+            conversation_to_update = db.exec(
+                select(Conversation).where(
+                    Conversation.id == conversation_id,
+                    Conversation.user_id == db_user.id,
+                    Conversation.is_active == True
+                )
+            ).first()
+            if not conversation_to_update:
+                raise HTTPException(status_code=404, detail="Conversation not found for update.")
+
+            conversation_to_update.context_data = final_context or None # Handle empty dict
+            conversation_to_update.system_prompt_override = effective_system_prompt
+            conversation_to_update.updated_at = datetime.now(timezone.utc)
+            db.add(conversation_to_update)
+            db.commit()
+            # db.refresh(conversation_to_update) # Refresh if you use its attributes later in this block
+
             logger.info(f"Successfully updated context/prompt for conversation {conversation_id}.")
-            session_info = {"id": conversation.id, "context": final_context}
+            session_info = {"id": conversation_to_update.id, "context": final_context}
             trigger_payload = {"chatContextUpdated": session_info, "closeModal": True}
 
-        else: # --- Creating ---
+        else:  # --- Creating New Conversation ---
             logger.info(f"Creating new conversation with context for user {db_user.id}")
             title_goal = final_context.get('goal', 'Chat').replace('_', ' ').title()
             genre_part = final_context.get('genre_tone', 'New Session')
             title_genre = genre_part.split(',')[0].strip()[:40]
             new_title = f"{title_goal}: {title_genre}"[:150]
 
-            # Create Conversation FIRST
-            new_conversation = Conversation(
+            # 1. Create and Commit Conversation object FIRST
+            new_conversation_obj = Conversation(
                 user_id=db_user.id,
                 title=new_title,
-                context_data=final_context or None,
+                context_data=final_context or None, # Handle empty dict
                 system_prompt_override=effective_system_prompt
             )
-            db.add(new_conversation)
+            db.add(new_conversation_obj)
             db.commit()
-            db.refresh(new_conversation)
-            new_conversation_id = new_conversation.id # Get the ID
-            logger.info(f"Successfully created new conversation {new_conversation_id} with title '{new_title}'.")
+            db.refresh(new_conversation_obj) # Essential to get ID and other DB-generated fields
 
+            created_conversation_id = new_conversation_obj.id
+            created_conversation_title = new_conversation_obj.title
+            created_conversation_object = new_conversation_obj
+            logger.info(f"Successfully created new conversation {created_conversation_id} with title '{created_conversation_title}'.")
 
-                # Check credits BEFORE calling AI
-            has_credit, reason = check_credit_status(db_user) # Check the user object from this session
-            if has_credit:
-                    logger.info(f"User {db_user.id} has credit. Attempting initial AI generation for convo {new_conversation_id}.")
-
-                    user_message_content = INITIAL_PROMPT
-                    ai_response_text = ""
-                    ai_stream_had_error = False
-                    ai_message_saved = False
-
+            # 2. Attempt Initial Message Generation
+            initial_user_prompt = final_context.get("key_details")
+            if initial_user_prompt and created_conversation_object: # Ensure convo object exists
+                logger.info(f"Key details provided ('{initial_user_prompt[:50]}...'), attempting initial message generation for convo {created_conversation_id}.")
+                has_credit, reason = check_credit_status(db_user) # Check original db_user from this request's session
+                
+                if has_credit:
+                    logger.info(f"User {db_user.id} has credit. Proceeding with initial AI call.")
+                    # Use a nested try-except for the message exchange to isolate its potential rollback
                     try:
-                        # --- Start Transaction Block for User Msg, AI Msg, Credit ---
-
-
-                        # 2. Call AI (Consume Stream)
-                        logger.debug("Calling AI stream for initial message...")
-                        ai_stream = call_google_ai_stream(
-                            prompt=user_message_content,
-                            history=[],
-                            system_prompt_override_instructions=effective_system_prompt
+                        # User Message
+                        user_message = ChatMessage(
+                            conversation_id=created_conversation_id,
+                            role=MessageRole.USER,
+                            content=initial_user_prompt
+                            # user_id=db_user.id # If your ChatMessage model has user_id
                         )
+                        db.add(user_message)
+                        created_conversation_object.updated_at = datetime.now(timezone.utc)
+                        db.add(created_conversation_object) # Add to session for timestamp update
 
-                        # <<<< ****** CORE FIX START ****** >>>>
-                        async for chunk in ai_stream:
-                            # Check for error chunks yielded by the stream function
-                            if chunk.startswith("**Error:**") or chunk.startswith("Error:"):
-                                logger.error(f"AI stream reported an error during initial generation: {chunk}")
-                                ai_response_text = chunk # Store error text if needed
-                                ai_stream_had_error = True
-                                break # Stop processing stream on error
-                            ai_response_text += chunk
-                        # <<<< ****** CORE FIX END ****** >>>>
+                        # --- Call the STREAMING function and consume it ---
+                        logger.info(f"Calling AI stream for initial response. Prompt: '{initial_user_prompt[:50]}...'")
+                        full_ai_response_text = ""
+                        ai_stream_error = None
+                        try:
+                            ai_stream = call_google_ai_stream( # Use the streaming function
+                                prompt=initial_user_prompt,
+                                history=[], # No history for the first message
+                                system_prompt_override_instructions=generated_prompt_instructions # Pass the generated part
+                                # Note: call_google_ai_stream will combine this with BASE_SYSTEM_PROMPT
+                            )
+                            async for chunk in ai_stream:
+                                # Check for errors yielded by the stream function itself
+                                if chunk.startswith("Error:") or chunk.startswith("**Error:"):
+                                    logger.warning(f"AI stream yielded an error chunk: {chunk}")
+                                    ai_stream_error = chunk # Store the error message
+                                    break # Stop consuming on error
+                                full_ai_response_text += chunk
+                        except Exception as stream_exc:
+                             logger.error(f"Exception while consuming initial AI stream: {stream_exc}", exc_info=True)
+                             ai_stream_error = f"**Error:** Exception during initial AI generation ({type(stream_exc).__name__})."
 
-                        # Check for empty response even if no error chunk received
-                        if not ai_stream_had_error and not ai_response_text.strip():
-                             logger.warning("Initial AI generation resulted in empty content.")
-                             ai_stream_had_error = True # Treat as error for saving
+                        # --- Process the consumed response ---
+                        logger.info(f"Initial AI stream consumed. Error: {ai_stream_error}. Response length: {len(full_ai_response_text)}")
 
-                        # 3. Save AI Response & Decrement Credit (only if stream successful)
-                        if not ai_stream_had_error:
-                            logger.debug("AI stream finished successfully. Saving AI message and decrementing credit.")
-                            # Lock user row for atomic credit update
+                        if not ai_stream_error and full_ai_response_text.strip():
+                            # Response seems valid
+                            logger.info(f"Initial AI response seems valid for convo {created_conversation_id}.")
                             locked_user = db.exec(select(User).where(User.id == db_user.id).with_for_update()).first()
-
-                            if not locked_user:
-                                logger.error(f"CRITICAL: User {db_user.id} not found post-stream. Aborting save.")
-                                db.rollback() # Rollback user message add
-                            elif locked_user.credits <= 0:
-                                logger.warning(f"User {db_user.id} credit check failed ({locked_user.credits}) *after* AI call. Rolling back initial message save.")
-                                db.rollback() # Rollback user message add
+                            if not locked_user or locked_user.credits <= 0:
+                                # ... (handle credit failure, rollback) ...
+                                db.rollback()
+                                initial_messages_generated = False
                             else:
-                                # Save AI message
+                                # ... (add AI message, decrement credit, commit exchange) ...
                                 ai_message = ChatMessage(
-                                    conversation_id=new_conversation_id,
+                                    conversation_id=created_conversation_id,
                                     role=MessageRole.ASSISTANT,
-                                    content=ai_response_text.strip() # Use accumulated text
+                                    content=full_ai_response_text.strip() # Use the collected text
                                 )
                                 db.add(ai_message)
-
-                                # Update conversation timestamp (already have new_conversation object)
-                                new_conversation.updated_at = datetime.now(timezone.utc)
-                                db.add(new_conversation)
-
-                                # Commit User message, AI message, credit update, timestamp update together
-                                db.commit()
-                                db.refresh(ai_message)
-                                db.refresh(locked_user)
-                                db.refresh(new_conversation) # Ensure updated_at is refreshed
-
-                                logger.info(f"Successfully generated and saved initial messages. AI:{ai_message.id}. User credits decremented to {locked_user.credits}.")
-                                initial_messages_generated = True # Mark success
-                                ai_message_saved = True # Flag for cleanup
-
-                        else:
-                            # AI stream had an error or was empty. Rollback the user message add.
-                            logger.warning("Initial AI generation failed or was empty. Rolling back user message addition.")
-                            db.rollback() # Roll back the user_message add
-                            db.refresh(new_conversation) # Refresh convo state
-
+                                locked_user.credits -= 1
+                                db.add(locked_user)
+                                db.commit() # Commit the whole exchange
+                                logger.info(f"Successfully saved initial AI exchange for convo {created_conversation_id}.")
+                                initial_messages_generated = True
+                        else: # AI call failed (stream error or empty response)
+                            logger.warning(f"Initial AI call failed. Stream error: {ai_stream_error}. Empty response: {not full_ai_response_text.strip()}")
+                            db.rollback() # Rollback user message/timestamp update
+                            initial_messages_generated = False
                     except Exception as ai_exc:
-                        db.rollback() # Rollback any partial changes (user message add)
-                        logger.error(f"Error during initial message generation stream processing: {ai_exc}", exc_info=True)
-                        initial_messages_generated = False # Ensure flag is false
-                        db.refresh(new_conversation) # Refresh convo state
-
-            else: # No credit
-                    logger.warning(f"User {db_user.id} does not have enough credits ({db_user.credits}) for initial message generation. Reason: {reason}")
-                    # No action needed, conversation created, flag remains false.
+                        db.rollback() # Rollback any partial adds from the AI exchange attempt
+                        logger.error(f"Error during initial message generation for convo {created_conversation_id}: {ai_exc}", exc_info=True)
+                        initial_messages_generated = False
+                else: # No credit for initial message
+                    logger.warning(f"User {db_user.id} does not have enough credits ({db_user.credits}) for initial message generation for convo {created_conversation_id}. Reason: {reason}")
                     initial_messages_generated = False
+            else: # No key details provided or conversation object missing (should not happen for latter)
+                 if not initial_user_prompt:
+                    logger.info(f"No key details provided, skipping initial message generation for convo {created_conversation_id}.")
+                 initial_messages_generated = False
 
+            # 3. Prepare Trigger Payload for the new chat
+            if created_conversation_id is None: # Safety check, should be set if creation was successful
+                logger.error("CRITICAL: created_conversation_id is None after attempting new conversation creation path.")
+                # This indicates a flaw in logic before this point, as conversation creation should have failed earlier or set the ID.
+                raise Exception("Failed to create new conversation or obtain its ID.")
 
-            # --- Prepare Trigger Payload ---
-        session_info = {
-                "id": new_conversation_id, # Use the obtained ID
-                "title": new_conversation.title,
+            session_info = {
+                "id": created_conversation_id,
+                "title": created_conversation_title, # Use the title from the created object
                 "context": final_context,
-                "initialMessagesGenerated": initial_messages_generated # <<< ADDED FLAG
+                "initialMessagesGenerated": initial_messages_generated
             }
-        trigger_payload = {"newChatCreated": session_info, "closeModal": True}
-            # --- End Initial Message Generation ---
+            trigger_payload = {"newChatCreated": session_info, "closeModal": True}
+            # --- End Creating New Conversation ---
 
-        # Return success with appropriate trigger
         headers = {"HX-Trigger": json.dumps(trigger_payload)}
         return Response(status_code=204, headers=headers)
 
-    except HTTPException:
-         db.rollback(); raise # Re-raise HTTP exceptions
+    except HTTPException: # Re-raise HTTP exceptions that we intentionally throw
+         if db.in_transaction(): db.rollback() # Ensure rollback if an HTTP error happens mid-transaction
+         raise
     except Exception as e:
-        db.rollback() # Rollback any ongoing transaction
-        logger.error(f"Error saving context/generating initial message for user {user.user_id} (Convo ID: {conversation_id}): {e}", exc_info=True)
-        # Return error trigger
-        error_payload = {"showError": {"message": "Failed to save context or generate initial message. Please try again."}}
+        if db.in_transaction(): db.rollback() # General rollback for any other unexpected error
+        
+        # Construct a more informative error message for the user if possible
+        error_message_detail = f"Failed to save context. Error: {str(e)}"
+        logger.error(f"Error in /save endpoint for user {user.user_id} (Convo ID: {conversation_id}): {e}", exc_info=True)
+        
+        error_payload = {"showError": {"message": error_message_detail}}
         error_headers = {"HX-Trigger": json.dumps(error_payload)}
-        # Use 500 to indicate server error, but HTMX might ignore trigger. 200 OK with error payload might be better.
-        return Response(content="Error saving context.", status_code=500, headers=error_headers) # Or 200
-    
+        # Return 500 to indicate server error. HTMX might not process HX-Trigger from 5xx by default,
+        # but custom error handling or `htmx.on("htmx:responseError", ...)` can manage this.
+        # Alternatively, return 200 OK with the error payload if you want HTMX to *always* process the trigger.
+        return Response(content="Error saving context.", status_code=500, headers=error_headers)
