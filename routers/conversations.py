@@ -153,7 +153,7 @@ async def chat_message_stream(
 
     db_user = get_or_create_db_user(user, db)
     if not db_user: raise HTTPException(status_code=500, detail="User data error.")
-    
+
     # Pass db_user.id instead of the db_user object to stream_and_save
     current_db_user_id = db_user.id # <<< STORE THE ID
     has_credit, reason = check_credit_status(db_user)
@@ -162,24 +162,18 @@ async def chat_message_stream(
         raise HTTPException(status_code=402, detail=f"Payment Required: {reason}")
 
     conversation = None
-    response_headers = {}
+    response_headers = {} # Initialize response_headers here
 
     try:
         if not conversation_id:
-            # If no conversation ID is provided, we assume the user MUST have gone
-            # through the setup process which would create one.
-            # Alternatively, find the *most recent* active conversation for the user.
             logger.warning(f"User {db_user.id} sent message without explicit conversation_id. Finding most recent.")
             conversation = db.exec(select(Conversation).where(Conversation.user_id == db_user.id, Conversation.is_active == True).order_by(col(Conversation.updated_at).desc())).first()
             if not conversation:
-                # If still no conversation, maybe create a default one here,
-                # or force user through setup via an error.
                 logger.error(f"User {db_user.id} has no active conversations. Cannot process message.")
                 raise HTTPException(status_code=400, detail="No active chat session found. Please start a new chat via setup.")
             conversation_id = conversation.id
             logger.info(f"Using most recent conversation {conversation_id} for user {db_user.id}")
         else:
-            # Fetch the specified conversation, ensuring ownership
             conversation = db.exec(select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == db_user.id, Conversation.is_active == True)).first()
             if not conversation:
                 raise HTTPException(status_code=404, detail="Conversation not found or not accessible.")
@@ -202,52 +196,49 @@ async def chat_message_stream(
         # --- Prepare History and System Prompt ---
         history_statement = select(ChatMessage).where(
             ChatMessage.conversation_id == final_conversation_id,
-            ChatMessage.id != user_message_id, # Exclude just added message
+            ChatMessage.id != user_message_id,
             ChatMessage.is_active == True
-        ).order_by(col(ChatMessage.timestamp).asc()).limit(20) # Limit history size
+        ).order_by(col(ChatMessage.timestamp).asc()).limit(20)
         history_messages = db.exec(history_statement).all()
 
-        # Use saved override or base prompt
         effective_system_prompt = conversation.system_prompt_override or BASE_SYSTEM_PROMPT
         logger.debug(f"Using effective system prompt (len {len(effective_system_prompt)}) for convo {final_conversation_id}")
 
         formatted_history = []
         for msg in history_messages:
-            # Ensure role is 'user' or 'model' as expected by the SDK
             sdk_role = "user" if msg.role == MessageRole.USER else "model"
             formatted_history.append({
                 "role": sdk_role,
-                "parts": [{"text": msg.content}] # Wrap content in 'parts' list with 'text' key
+                "parts": [{"text": msg.content}]
             })
 
         # --- Stream Response and Save AI Message ---
-        async def stream_and_save(user_msg_id: int):
+        async def stream_and_save(user_msg_id: int, db_user_id_for_stream: int): # <<< CORRECTED SIGNATURE
+            nonlocal response_headers # Allow modification of headers from outer scope
             full_response_content = ""
             ai_had_error = False
             ai_message_id = None
             try:
                 ai_stream = call_google_ai_stream(
-                    prompt=prompt, # The current prompt is just text, which is handled correctly
-                    history=formatted_history, # Pass the correctly formatted history
+                    prompt=prompt,
+                    history=formatted_history,
                     system_prompt_override_instructions=effective_system_prompt
                 )
 
                 async for chunk in ai_stream:
-                    # Check for internal error messages from the stream function itself
                     if chunk.startswith("**Error:**") or chunk.startswith("Error:"):
                         logger.error(f"AI service stream returned an error chunk: {chunk}")
-                        full_response_content = chunk # Store error message
+                        full_response_content = chunk
                         ai_had_error = True
-                        yield chunk # Yield error to client
-                        # Stop processing this stream on error
+                        yield chunk
                         return
                     else:
                         yield chunk
                         full_response_content += chunk
 
-                if not full_response_content: # Handle case where stream finishes with no text and no error flag
+                if not full_response_content:
                     logger.warning(f"AI stream completed with empty response for convo {final_conversation_id}.")
-                    ai_had_error = True # Treat as error for saving logic
+                    ai_had_error = True
 
             except Exception as stream_exc:
                 logger.error(f"Error during streaming generation for convo {final_conversation_id}: {stream_exc}", exc_info=True)
@@ -256,33 +247,28 @@ async def chat_message_stream(
 
             # --- Save AI Message & Decrement Credit (only if no error and content exists) ---
             if not ai_had_error and full_response_content:
-                with Session(engine) as post_stream_db: # Use separate session
+                with Session(engine) as post_stream_db:
                     try:
-                        # Re-fetch user for current credit count and lock row potentially
-                        locked_user = post_stream_db.exec(select(User).where(User.id == db_user.id).with_for_update()).first()
+                        # Use db_user_id_for_stream (the passed parameter)
+                        locked_user = post_stream_db.exec(select(User).where(User.id == db_user_id_for_stream).with_for_update()).first()
 
                         if not locked_user:
-                            logger.error(f"CRITICAL: User {db_user.id} not found post-stream for convo {final_conversation_id}.")
+                            logger.error(f"CRITICAL: User {db_user_id_for_stream} not found post-stream for convo {final_conversation_id}.")
                             return
                         if locked_user.credits <= 0:
-                            logger.error(f"User {db_user.id} has no credits ({locked_user.credits}) post-stream. Aborting save/decrement for convo {final_conversation_id}.")
-                            # Yield a message indicating credit issue?
-                            # yield json.dumps({"error": "Insufficient credits after generation."})
+                            logger.error(f"User {db_user_id_for_stream} has no credits ({locked_user.credits}) post-stream. Aborting save/decrement for convo {final_conversation_id}.")
                             return
 
                         ai_message = ChatMessage(
                             conversation_id=final_conversation_id,
                             role=MessageRole.ASSISTANT,
                             content=full_response_content.strip(),
-                            # Add token counts here later if available
                         )
                         post_stream_db.add(ai_message)
 
-                        # Decrement credits
                         locked_user.credits -= 1
                         post_stream_db.add(locked_user)
 
-                        # Update conversation timestamp
                         convo_to_update = post_stream_db.get(Conversation, final_conversation_id)
                         if convo_to_update:
                             convo_to_update.updated_at = datetime.now(timezone.utc)
@@ -291,20 +277,22 @@ async def chat_message_stream(
                         post_stream_db.commit()
                         post_stream_db.refresh(ai_message)
                         ai_message_id = ai_message.id
-                        logger.info(f"AI Response saved (ID: {ai_message_id}, Convo: {final_conversation_id}), User {db_user.id} credits decremented to {locked_user.credits}")
+                        logger.info(f"AI Response saved (ID: {ai_message_id}, Convo: {final_conversation_id}), User {db_user_id_for_stream} credits decremented to {locked_user.credits}")
+                        
                         # Set header for frontend JS to update display
+                        # This modification needs to be done carefully with nonlocal
                         response_headers["X-User-Credits"] = str(locked_user.credits)
+
 
                     except Exception as db_exc:
                         logger.error(f"DB Error during post-stream save for convo {final_conversation_id}: {db_exc}", exc_info=True)
                         post_stream_db.rollback()
-                        ai_message_id = None # Ensure ID is None if save failed
+                        ai_message_id = None
 
             # --- Yield Final JSON with IDs (only if AI message saved) ---
             if ai_message_id is not None:
                 try:
                     final_data = {"userMessageId": user_msg_id, "aiMessageId": ai_message_id}
-                    # Add a marker to distinguish JSON from text chunks (e.g., prefix/suffix)
                     yield f"\n<!-- FINAL_PAYLOAD:{json.dumps(final_data)} -->"
                     logger.debug(f"Yielded final JSON payload for convo {final_conversation_id}")
                 except Exception as json_err:
@@ -312,18 +300,29 @@ async def chat_message_stream(
             else:
                  logger.warning(f"Not yielding final JSON data because ai_message_id is None for convo {final_conversation_id}")
 
+        streaming_content_generator = stream_and_save(user_message_id, current_db_user_id)
+        
+        async def generator_wrapper():
+            nonlocal response_headers # ensure this is the same dict as used in stream_and_save
+            async for item in streaming_content_generator:
+                yield item
+            # After the generator is exhausted, response_headers should be populated if credits were decremented.
 
-        # --- Return Streaming Response ---
-        response = StreamingResponse(stream_and_save(user_message_id, current_db_user_id), media_type="text/plain") # <<< PASS current_db_user_id# Set headers collected during processing
-        for k, v in response_headers.items(): response.headers[k] = v
+        # Create the StreamingResponse with the wrapper
+        response = StreamingResponse(generator_wrapper(), media_type="text/plain")
+
+        for k, v in response_headers.items(): # This will apply headers populated by stream_and_save
+            response.headers[k] = v
+            
         return response
 
     except HTTPException:
-        raise # Re-raise specific HTTP errors
+        db.rollback() # Rollback on HTTP exceptions if they occur before a successful commit in the try block
+        raise
     except Exception as e:
-        logger.error(f"Unexpected error in /chat/message endpoint for user {db_user.id}: {e}", exc_info=True)
+        db.rollback() # General rollback
+        logger.error(f"Unexpected error in /chat/message endpoint for user {getattr(db_user, 'id', 'unknown')}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error processing chat request.")
-
 @router.delete("/conversations/{conversation_id}/messages/{message_id}", status_code=204)
 async def delete_message_and_after( # Renamed to match call site
     conversation_id: int = Path(..., description="Conversation ID"),

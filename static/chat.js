@@ -133,41 +133,36 @@ const ChatManager = {
     }
 
     // --- Prepare UI ---
-    // Always hide controls and clear context before loading new convo/state
     if (modifyContextControls) modifyContextControls.style.display = 'none';
     if (activeContextDisplay) activeContextDisplay.innerHTML = '';
-    chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Loading conversation...</p>'; // Loading indicator
+    chatDisplay.innerHTML = '<p class="text-muted small text-center initial-chat-prompt">Loading conversation...</p>';
 
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
 
-    // --- Handle Null ID (New/Initial State) ---
     if (!conversationId) {
         console.log('[Chat] loadAndDisplayConversation: No ID, displaying initial prompt.');
         this.currentConversationId = null;
-        chatDisplay.innerHTML = ''; // Clear loading message
-        removeInitialPrompt(chatDisplay); // Use UI helper
-        renderMessage('ai', 'Welcome! Start a New Chat (+) to set up context or select an existing one.', chatDisplay); // Use UI helper
+        chatDisplay.innerHTML = '';
+        removeInitialPrompt(chatDisplay);
+        renderMessage('ai', 'Welcome! Start a New Chat (+) to set up context or select an existing one.', chatDisplay);
         if (activeContextDisplay) activeContextDisplay.innerHTML = '<span class="text-muted small fst-italic">Start or select a chat</span>';
         scrollToBottom('ai-result-output', false);
-        return; // Exit early
+        return;
     }
 
-    // --- Handle Missing Token ---
     if (!token) {
-      renderChatError('You must be logged in to load conversations.', chatDisplay); // Use UI helper
+      renderChatError('You must be logged in to load conversations.', chatDisplay);
       if (activeContextDisplay) activeContextDisplay.innerHTML = '<span class="text-muted small fst-italic">Please log in</span>';
-      this.currentConversationId = null; // Ensure state is clear
-      return; // Exit early
+      this.currentConversationId = null;
+      return;
     }
 
-    // --- Fetch and Display Specific Conversation ---
     try {
       console.log(`[Chat] Fetching conversation ID: ${conversationId}`);
-      const data = await fetchConversationById(conversationId, token); // Use API helper
-      chatDisplay.innerHTML = ''; // Clear loading message
-      removeInitialPrompt(chatDisplay); // Use UI helper
+      const data = await fetchConversationById(conversationId, token);
+      chatDisplay.innerHTML = '';
+      removeInitialPrompt(chatDisplay);
 
-      // Check if backend structure is as expected
       const conversation = data?.conversation;
       const messages = data?.messages;
       if (!conversation || !Array.isArray(messages)) {
@@ -175,54 +170,49 @@ const ChatManager = {
           throw new Error("Received invalid conversation data structure from server.");
       }
 
-      // Render messages
       if (messages.length === 0) {
         renderMessage('ai', 'This conversation is empty. Start typing!', chatDisplay);
       } else {
         messages.forEach((msg, idx) => {
-          renderMessage( // Use UI helper
+          // The delete callback for messages loaded from history
+          const deleteCallback = async (deleteIdxFromUI) => {
+            try {
+              // It's good practice to log the index received from UI vs expected
+              console.log(`[Chat][Delete CB Load] Invoked for historical message. Index from UI: ${deleteIdxFromUI}, Original index: ${idx}`);
+              await this.deleteMessageAndAfter(deleteIdxFromUI); // Use the index from UI callback
+            } catch (e) {
+              console.error(`[Chat][Delete CB Load] Error in delete callback for historical msg index ${idx}:`, e);
+              alert("An error occurred while trying to delete the message.");
+            }
+          };
+          renderMessage(
             msg.role === 'user' ? 'user' : 'ai',
             msg.content,
             chatDisplay,
-            msg.id || `msg-temp-${idx}`, // Ensure an ID exists for potential deletion
-            async (deleteIdx) => { // Pass delete handler callback
-              if (confirm('Delete this message and all messages that follow? This cannot be undone.')) {
-                  await this.deleteMessageAndAfter(deleteIdx);
-              }
-            },
-            idx // Pass the index for the handler
+            msg.id || `msg-temp-${idx}`,
+            deleteCallback, // Pass the enhanced callback
+            idx // Pass the original index for chatUI to use
           );
         });
       }
 
-      // --- Update State and UI on Success ---
-      this.currentConversationId = conversationId; // Set the active ID
+      this.currentConversationId = conversationId;
       console.log('[Chat] Successfully loaded conversation:', conversationId);
-
-      this.updateActiveContextDisplay(conversation.context); // Update context badges
-
-      if (modifyContextControls) modifyContextControls.style.display = 'flex'; // Show context button
+      this.updateActiveContextDisplay(conversation.context);
+      if (modifyContextControls) modifyContextControls.style.display = 'flex';
 
     } catch (e) {
-      // --- Handle Errors During Fetch/Render ---
       console.error(`[Chat] Error loading conversation ${conversationId}:`, e);
-      renderChatError(`Error loading conversation: ${e.message}`, chatDisplay); // Use UI helper
-      this.currentConversationId = null; // Clear active ID on error
-      // Ensure controls are hidden and context is cleared on error
+      renderChatError(`Error loading conversation: ${e.message}`, chatDisplay);
+      this.currentConversationId = null;
       if (modifyContextControls) modifyContextControls.style.display = 'none';
       if (activeContextDisplay) activeContextDisplay.innerHTML = '';
     } finally {
-      // Ensure scroll happens after render attempt (success or fail)
       setTimeout(() => scrollToBottom('ai-result-output', false), 50);
     }
   },
 
   // --- CHAT INTERACTION ---
-
-  /**
-   * Handle user message submission, call API, display streaming response.
-   */
-    // --- CHAT INTERACTION ---
 
   /**
    * Handle user message submission, call API, display streaming response.
@@ -233,8 +223,6 @@ const ChatManager = {
     const loadingIndicator = document.getElementById('ai-loading-indicator');
     const userMessageElement = aiMessageDiv?.previousElementSibling;
 
-    // --- Pre-flight Checks ---
-    // (Keep existing pre-flight checks)
     if (!aiMessageDiv || !textareaElement || !generateButton || !loadingIndicator) {
         console.error('[Chat][Submit] Critical UI elements missing.');
         if(textareaElement) textareaElement.disabled = false;
@@ -251,7 +239,6 @@ const ChatManager = {
       return;
     }
 
-    // --- API Call and Streaming ---
     try {
       const response = await sendChatMessage({
           prompt: userMessage,
@@ -260,7 +247,6 @@ const ChatManager = {
       });
 
       if (!response.ok) {
-          // (Keep existing error handling for non-ok response)
           let errorText = `API Error ${response.status}`;
           try {
               const errorData = await response.json();
@@ -270,11 +256,10 @@ const ChatManager = {
           throw new Error(errorText);
       }
 
-      // --- Process Stream ---
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let aiResponseContent = ''; // Accumulates the final text content
-      let streamBuffer = ''; // Buffers chunks to find delimiters
+      let aiResponseContent = '';
+      let streamBuffer = '';
       const markdownDiv = aiMessageDiv.querySelector('.markdown-content');
 
       if (!markdownDiv) {
@@ -290,47 +275,35 @@ const ChatManager = {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // Append the decoded chunk to the buffer
         const chunk = decoder.decode(value, { stream: true });
         streamBuffer += chunk;
 
-        // Check if the complete payload delimiter is in the buffer
         const startIndex = streamBuffer.indexOf(START_DELIMITER);
         const endIndex = streamBuffer.indexOf(END_DELIMITER);
 
         if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-            // Found the payload
             const jsonString = streamBuffer.substring(startIndex + START_DELIMITER.length, endIndex);
             try {
                 finalPayload = JSON.parse(jsonString);
                 console.log('[Chat] Successfully parsed final payload:', finalPayload);
-                // The actual text content is everything BEFORE the start delimiter
                 aiResponseContent = streamBuffer.substring(0, startIndex);
-                // Render the final text content
                 markdownDiv.innerHTML = window.marked ? window.marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
                 scrollToBottom('ai-result-output', true);
-                // We found the payload, break the loop
                 break;
             } catch (e) {
                 console.error('[Chat] Error parsing final payload JSON:', e, 'Raw string:', jsonString);
-                // Payload format error from backend? Treat remaining buffer as text.
-                aiResponseContent = streamBuffer; // Use the whole buffer as text
+                aiResponseContent = streamBuffer;
                 markdownDiv.innerHTML = window.marked ? window.marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
-                // Continue reading? Or break? Let's break to avoid potential infinite loop on malformed data.
                 break;
             }
         } else {
-            // Payload not fully received yet, treat the current buffer as text for rendering
-            // Note: This renders potentially incomplete text, but updates progressively
-            aiResponseContent = streamBuffer; // Update our tracker of text content
+            aiResponseContent = streamBuffer;
             markdownDiv.innerHTML = window.marked ? window.marked.parse(streamBuffer) : escapeHtml(streamBuffer).replace(/\n/g, '<br>');
-            scrollToBottom('ai-result-output', true); // Scroll as content streams
+            scrollToBottom('ai-result-output', true);
         }
-      } // End stream reading loop
+      }
 
-      // --- Post-Stream Processing ---
       if (finalPayload) {
-          // (Keep existing logic for setting IDs and adding delete buttons)
           console.log('[Chat] Processing final payload actions:', finalPayload);
           if (aiMessageDiv) aiMessageDiv.dataset.messageId = finalPayload.aiMessageId;
           if (userMessageElement && userMessageElement.classList.contains('user-message')) {
@@ -343,38 +316,31 @@ const ChatManager = {
                this._addDeleteButtonsToLatestMessages(chatDisplay, finalPayload);
           }
       } else {
-          // This log should now only appear if the stream ends *without* the backend sending the delimited payload
           console.warn('[Chat] Stream finished, but no final message ID payload was detected or parsed correctly.');
-          // Attempt to add delete buttons anyway (might use temp IDs if real ones aren't set)
            const chatDisplay = document.getElementById('chat-message-list');
            if (chatDisplay) {
-               this._addDeleteButtonsToLatestMessages(chatDisplay, null); // Pass null payload
+               this._addDeleteButtonsToLatestMessages(chatDisplay, null);
            }
       }
 
-       // Final render pass for safety (unlikely needed if break logic is correct)
-       if (markdownDiv && aiResponseContent) { // Render the final accumulated text content
+       if (markdownDiv && aiResponseContent) {
             markdownDiv.innerHTML = window.marked ? window.marked.parse(aiResponseContent) : escapeHtml(aiResponseContent).replace(/\n/g, '<br>');
        }
 
-      await this.fetchAndUpdateCreditsDisplay(); // Update credits display
+      await this.fetchAndUpdateCreditsDisplay();
 
-      // Clear input and reset height on success
       if (textareaElement) {
         textareaElement.value = '';
         setTextareaHeight(textareaElement);
       }
 
     } catch (error) {
-      // --- Handle Errors During API/Stream ---
       console.error('[Chat][Submit] Error during API call or streaming:', error);
       if (aiMessageDiv) {
         const errorTarget = aiMessageDiv.querySelector('.markdown-content') || aiMessageDiv;
         errorTarget.innerHTML = `<span class="text-danger">Error: ${escapeHtml(error.message)}</span>`;
       }
     } finally {
-      // --- Cleanup ---
-      // (Keep existing finally block)
       if (textareaElement) textareaElement.disabled = false;
       if (generateButton) generateButton.disabled = false;
       if (loadingIndicator) loadingIndicator.style.display = 'none';
@@ -394,31 +360,97 @@ const ChatManager = {
         alert("Error: Chat display area not found.");
         return;
     }
-    const messages = Array.from(chatDisplay.children);
-    if (messageIndex < 0 || messageIndex >= messages.length) {
-      console.error('[Chat][Delete] Invalid message index:', messageIndex);
-      alert("Error: Cannot delete message at invalid index.");
+
+    // Use a distinct variable name for the snapshot of messages
+    const currentMessages = Array.from(chatDisplay.children);
+
+    // --- Enhanced Logging & Initial Validation ---
+    console.log(`[Chat][Delete] Attempting delete for messageIndex: ${messageIndex}. Current messages count: ${currentMessages.length}`);
+    if (messageIndex < 0 || messageIndex >= currentMessages.length) {
+      console.error(`[Chat][Delete] Invalid messageIndex: ${messageIndex} for currentMessages.length: ${currentMessages.length}.`);
+      // Log available messages for debugging if helpful
+      // currentMessages.forEach((el, i) => console.log(`[Chat][Delete] Message[${i}]: ${el.outerHTML.substring(0, 70)}...`));
+      alert("Error: Cannot delete message, index is out of bounds.");
       return;
     }
+    console.log(`[Chat][Delete] messageIndex ${messageIndex} is within bounds [0, ${currentMessages.length - 1}]`);
 
-    const targetMessageElement = messages[messageIndex];
-    const messageIdToDelete = targetMessageElement?.dataset.messageId;
+    const targetMessageElement = currentMessages[messageIndex];
 
+    // --- CRITICAL GUARD ---
+    if (!targetMessageElement) {
+        console.error(`[Chat][Delete] CRITICAL: targetMessageElement is UNDEFINED for valid index ${messageIndex}.`);
+        console.error('[Chat][Delete] Current messages snapshot:', currentMessages.map(el => el.outerHTML ? el.outerHTML.substring(0,70) : String(el) ));
+        alert("Internal error: Could not find the message element to delete. Please refresh and try again.");
+        return;
+    }
+    console.log(`[Chat][Delete] targetMessageElement successfully retrieved for index ${messageIndex}.`);
+    // Now we are sure targetMessageElement is an HTMLElement.
+
+    const messageIdToDelete = targetMessageElement.dataset.messageId;
+
+    // --- BRANCH 1: Handle messages with missing or temporary IDs ---
     if (!messageIdToDelete || messageIdToDelete.startsWith('msg-temp-')) {
+      console.log(`[Chat][Delete] Branch 1: Handling message with temp/missing ID at index ${messageIndex}. ID: ${messageIdToDelete}`);
+      // Check if it's an AI message and has a preceding user message, eligible for regeneration prompt
+      if (targetMessageElement.classList.contains('ai-message') && messageIndex > 0) {
+        const precedingUserElement = currentMessages[messageIndex - 1]; // Use currentMessages
+        if (precedingUserElement?.classList.contains('user-message')) {
+          let contentElement = precedingUserElement.querySelector('.markdown-content p') ||
+                               precedingUserElement.querySelector('.markdown-content') ||
+                               precedingUserElement;
+          const userPromptText = contentElement.textContent?.trim() || '';
+
+          if (userPromptText &&
+              confirm('This AI message appears unsaved or has a temporary ID. Would you like to remove it and try regenerating the response from the previous user prompt?')) {
+
+            console.log('[Chat][Delete/Regen] User opted to regenerate unsaved AI message. Prompt:', userPromptText);
+
+            const messagesToRemoveFromUI = currentMessages.slice(messageIndex);
+            messagesToRemoveFromUI.forEach(msg => msg.remove());
+            console.log(`[Chat][Delete/Regen] Removed ${messagesToRemoveFromUI.length} message elements from UI starting at index ${messageIndex}.`);
+
+            const textareaElement = document.getElementById('ai-prompt-input');
+            const currentChatDisplay = document.getElementById('chat-message-list');
+            const newAiMessageDiv = renderAIPlaceholder(currentChatDisplay);
+
+            const currentGenerateButton = document.getElementById('ai-generate-button');
+            const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
+
+            if(textareaElement) textareaElement.disabled = true;
+            if(currentGenerateButton) currentGenerateButton.disabled = true;
+            if(currentLoadingIndicator) currentLoadingIndicator.style.display = 'inline-block';
+
+            await this.handleAPISubmission(userPromptText, newAiMessageDiv, textareaElement);
+            console.log('[Chat][Delete/Regen] Regeneration submission for unsaved AI message initiated.');
+            return;
+          }
+        }
+      }
+
       alert('Cannot delete message: Missing server ID. Please wait for the message to fully save.');
-      console.warn('[Chat][Delete] Missing or temporary message ID on element at index:', messageIndex, targetMessageElement);
+      console.warn('[Chat][Delete] Missing or temporary message ID on element at index:', messageIndex, targetMessageElement.outerHTML.substring(0,100));
       return;
     }
 
-    // Determine prompt for potential regeneration BEFORE API call
-    let promptForRegeneration = null;
+    // --- BRANCH 2: Handle messages with valid server IDs ---
+    console.log(`[Chat][Delete] Branch 2: Handling message with valid ID: ${messageIdToDelete} at index ${messageIndex}`);
+    if (!confirm('Delete this message and all messages that follow? This cannot be undone.')) {
+        console.log('[Chat][Delete] User cancelled deletion for message ID:', messageIdToDelete);
+        return;
+    }
+
+    let promptForRegenerationAfterDelete = null;
     if (targetMessageElement.classList.contains('ai-message') && messageIndex > 0) {
-        const precedingUserElement = messages[messageIndex - 1];
+        const precedingUserElement = currentMessages[messageIndex - 1]; // Use currentMessages
         if (precedingUserElement?.classList.contains('user-message')) {
-            // Extract text content more robustly
-            let contentElement = precedingUserElement.querySelector('.markdown-content p') || precedingUserElement.querySelector('.markdown-content') || precedingUserElement;
-            promptForRegeneration = contentElement.textContent?.trim() || '';
-            console.log('[Chat][Delete] Found preceding user prompt for potential regeneration:', promptForRegeneration);
+            let contentElement = precedingUserElement.querySelector('.markdown-content p') ||
+                               precedingUserElement.querySelector('.markdown-content') ||
+                               precedingUserElement;
+            promptForRegenerationAfterDelete = contentElement.textContent?.trim() || '';
+            if (promptForRegenerationAfterDelete) {
+                console.log('[Chat][Delete] Identified preceding user prompt for potential post-delete regeneration:', promptForRegenerationAfterDelete);
+            }
         }
     }
 
@@ -428,10 +460,9 @@ const ChatManager = {
       alert('Cannot delete message: Missing authentication or conversation context.');
       return;
     }
-    console.log(`[Chat][Delete] Attempting delete: Convo ${conversationId}, Msg ${messageIdToDelete} (Index ${messageIndex})`);
+    console.log(`[Chat][Delete] Attempting backend delete: Convo ${conversationId}, Msg ${messageIdToDelete} (Index ${messageIndex})`);
 
     try {
-        // --- API Call to Backend ---
         const response = await fetch(`/api/v1/conversations/${conversationId}/messages/${messageIdToDelete}`, {
             method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
         });
@@ -441,36 +472,31 @@ const ChatManager = {
         }
         console.log(`[Chat][Delete] API call successful for message ${messageIdToDelete}.`);
 
-        // --- Remove Messages from UI ---
-        const messagesToRemove = messages.slice(messageIndex);
+        const messagesToRemove = currentMessages.slice(messageIndex);
         messagesToRemove.forEach(msg => msg.remove());
         console.log(`[Chat][Delete] Removed ${messagesToRemove.length} message elements from UI starting at index ${messageIndex}.`);
 
-        // --- Trigger Regeneration if Applicable ---
-        if (promptForRegeneration) {
-            console.log('[Chat][Delete] Triggering regeneration for prompt:', promptForRegeneration);
+        if (promptForRegenerationAfterDelete) {
+            console.log('[Chat][Delete] Triggering post-delete regeneration for prompt:', promptForRegenerationAfterDelete);
             const textareaElement = document.getElementById('ai-prompt-input');
-            const newAiMessageDiv = renderAIPlaceholder(chatDisplay); // Add new placeholder
+            const newAiMessageDiv = renderAIPlaceholder(chatDisplay);
             const currentGenerateButton = document.getElementById('ai-generate-button');
             const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
 
-            // Disable input while regenerating
             if(textareaElement) textareaElement.disabled = true;
             if(currentGenerateButton) currentGenerateButton.disabled = true;
             if(currentLoadingIndicator) currentLoadingIndicator.style.display = 'inline-block';
 
-            // Call the main submission handler
-            await this.handleAPISubmission(promptForRegeneration, newAiMessageDiv, textareaElement);
-            console.log('[Chat][Delete] Regeneration submission initiated.');
+            await this.handleAPISubmission(promptForRegenerationAfterDelete, newAiMessageDiv, textareaElement);
+            console.log('[Chat][Delete] Post-delete regeneration submission initiated.');
         } else {
-             console.log('[Chat][Delete] No regeneration needed.');
-             await this.fetchAndUpdateCreditsDisplay(); // Update credits even if not regenerating
+             console.log('[Chat][Delete] No post-delete regeneration needed.');
+             await this.fetchAndUpdateCreditsDisplay();
         }
 
     } catch (error) {
-        console.error('[Chat][Delete] Error during message deletion process:', error);
+        console.error('[Chat][Delete] Error during message deletion process (for valid ID):', error);
         alert(`Error deleting message: ${error.message}`);
-        // Consider how to restore UI state or inform user if deletion fails partially
     }
    },
 
@@ -480,30 +506,29 @@ const ChatManager = {
   /** Fetch and update the user's credits display in the UI. */
   async fetchAndUpdateCreditsDisplay() {
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-    if (!token) return; // Don't try if not logged in
+    if (!token) return;
 
-    const navbarCredits = document.getElementById('navbar-user-credits'); // Target specific element
-    if (!navbarCredits) return; // Don't proceed if element doesn't exist
+    const navbarCredits = document.getElementById('navbar-user-credits');
+    if (!navbarCredits) return;
 
     try {
-      const resp = await fetch('/api/v1/user/me', { // Use the correct endpoint
+      const resp = await fetch('/api/v1/user/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (resp.ok) {
         const data = await resp.json();
         const credits = (data.credits !== null && data.credits !== undefined) ? data.credits : '-';
-        navbarCredits.textContent = `Credits: ${credits}`; // Update UI
-        // Update global state if it exists
+        navbarCredits.textContent = `Credits: ${credits}`;
         if (window.currentUserInfo?.dbUserData) {
              window.currentUserInfo.dbUserData.credits = data.credits;
         }
       } else {
           console.warn('[Chat] Failed to fetch updated credits, status:', resp.status);
-          navbarCredits.textContent = 'Credits: Error'; // Indicate error in UI
+          navbarCredits.textContent = 'Credits: Error';
       }
     } catch (e) {
       console.error('[Chat] Network error fetching updated credits:', e);
-      navbarCredits.textContent = 'Credits: Error'; // Indicate error in UI
+      navbarCredits.textContent = 'Credits: Error';
     }
   },
 
@@ -511,24 +536,20 @@ const ChatManager = {
   _performFullscreenToggle() {
     if (!allowClassToggle) {
       console.warn("[Chat Toggle] Debounced toggle call.");
-      return; // Debounce
+      return;
     }
-    allowClassToggle = false; // Block subsequent calls
+    allowClassToggle = false;
 
-    // Toggle internal state FIRST
     this.isFullscreenActive = !this.isFullscreenActive;
     console.log(`[Chat Toggle] Setting internal fullscreen state to: ${this.isFullscreenActive}`);
 
-    this._syncUIWithState(); // Apply changes based on the new state
+    this._syncUIWithState();
 
-    // Adjust layout slightly after state change and re-enable toggle
     setTimeout(() => {
       const promptInput = document.getElementById('ai-prompt-input');
       if (promptInput) setTextareaHeight(promptInput, true);
-      // Scroll to bottom only when entering fullscreen
       if (this.isFullscreenActive) scrollToBottom('ai-result-output', false);
-
-      allowClassToggle = true; // Re-allow toggling
+      allowClassToggle = true;
       console.log("[Chat Toggle] Re-enabled toggling.");
     }, 150);
   },
@@ -542,12 +563,10 @@ const ChatManager = {
     const normalZoomBtn = document.getElementById(CHAT_ZOOM_TOGGLE_NORMAL_ID);
     const fullscreenZoomBtn = document.getElementById(CHAT_ZOOM_TOGGLE_FULLSCREEN_ID);
 
-    // --- Apply state to elements ---
     body.classList.toggle('chat-fullscreen-active', isFullscreen);
 
     if (sidebar) {
       sidebar.classList.toggle('d-none', !isFullscreen);
-      // Render sidebar content only when making it visible
       if (isFullscreen && !sidebar.classList.contains('d-none')) {
           this.renderSidebarConversations();
       }
@@ -563,7 +582,7 @@ const ChatManager = {
   /** Render the conversation list in the fullscreen sidebar. */
   async renderSidebarConversations() {
     const list = document.getElementById('conversation-list');
-    const newBtn = document.getElementById('new-conversation-btn'); // Assumes ID exists in sidebar HTML
+    const newBtn = document.getElementById('new-conversation-btn');
 
     if (!list) {
       console.warn('[Chat Sidebar] conversation-list element not found.');
@@ -571,70 +590,64 @@ const ChatManager = {
     }
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
 
-    // Handle logged-out state
     if (!token) {
       list.innerHTML = '<li><span class="text-muted small">Please log in</span></li>';
       if (newBtn) newBtn.disabled = true;
       return;
     }
 
-    if (newBtn) newBtn.disabled = false; // Enable if logged in
-    list.innerHTML = '<li><span class="text-muted small">Loading...</span></li>'; // Loading state
+    if (newBtn) newBtn.disabled = false;
+    list.innerHTML = '<li><span class="text-muted small">Loading...</span></li>';
 
     try {
-      const conversations = await fetchConversations(token); // Use API helper
-      list.innerHTML = ''; // Clear loading/previous list
+      const conversations = await fetchConversations(token);
+      list.innerHTML = '';
 
       if (!Array.isArray(conversations) || conversations.length === 0) {
         list.innerHTML = '<li><span class="text-muted small">No conversations yet</span></li>';
       } else {
         conversations.forEach(conv => {
           const li = document.createElement('li');
-          li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center'; // Use Bootstrap classes
+          li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
           li.dataset.conversationId = conv.id;
           li.style.cursor = 'pointer';
 
           const titleSpan = document.createElement('span');
           titleSpan.textContent = conv.title || 'Untitled Conversation';
           titleSpan.title = conv.title || 'Untitled Conversation';
-          titleSpan.className = 'conversation-title text-truncate me-2'; // Allow truncation
+          titleSpan.className = 'conversation-title text-truncate me-2';
           li.appendChild(titleSpan);
 
-          // Activate current conversation
           if (conv.id === this.currentConversationId) {
             li.classList.add('active');
           }
 
-          // --- Action Buttons ---
           const actionsDiv = document.createElement('div');
-          actionsDiv.className = 'conversation-actions btn-group btn-group-sm flex-shrink-0'; // Use Bootstrap button group
+          actionsDiv.className = 'conversation-actions btn-group btn-group-sm flex-shrink-0';
           actionsDiv.role = "group";
 
-          // Rename Button
           const renameBtn = document.createElement('button');
           renameBtn.type = 'button';
-          renameBtn.className = 'btn btn-outline-secondary conversation-rename-btn border-0 px-1 py-0'; // Subtle style
+          renameBtn.className = 'btn btn-outline-secondary conversation-rename-btn border-0 px-1 py-0';
           renameBtn.title = 'Rename Conversation';
           renameBtn.innerHTML = '<i class="bi bi-pencil small"></i>';
           renameBtn.addEventListener('click', (e) => {
-              e.stopPropagation(); // Prevent li click
-              this.showRenameDialog(conv); // Assume this method exists
+              e.stopPropagation();
+              this.showRenameDialog(conv);
           });
           actionsDiv.appendChild(renameBtn);
 
-          // Delete Button
           const deleteBtn = document.createElement('button');
           deleteBtn.type = 'button';
-          deleteBtn.className = 'btn btn-outline-danger conversation-delete-btn border-0 px-1 py-0'; // Subtle style
+          deleteBtn.className = 'btn btn-outline-danger conversation-delete-btn border-0 px-1 py-0';
           deleteBtn.title = 'Delete Conversation';
           deleteBtn.innerHTML = '<i class="bi bi-trash small"></i>';
           deleteBtn.addEventListener('click', async (e) => {
-            e.stopPropagation(); // Prevent li click
+            e.stopPropagation();
             if (confirm(`Are you sure you want to delete "${conv.title || 'Untitled Conversation'}"?`)) {
               try {
-                 await this.deleteConversation(conv.id); // Assume this method exists
-                 await this.renderSidebarConversations(); // Refresh list
-                 // If deleted convo was active, load latest/default
+                 await this.deleteConversation(conv.id);
+                 await this.renderSidebarConversations();
                  if (conv.id === this.currentConversationId) {
                      await this.loadLatestConversation();
                  }
@@ -643,14 +656,11 @@ const ChatManager = {
           });
           actionsDiv.appendChild(deleteBtn);
           li.appendChild(actionsDiv);
-          // --- End Action Buttons ---
 
-          // Click listener for the whole list item
           li.addEventListener('click', async () => {
             if (conv.id !== this.currentConversationId) {
               console.log(`[Chat Sidebar] Switching to conversation ${conv.id}`);
               await this.loadAndDisplayConversation(conv.id);
-              // Update active state in sidebar after load finishes
               list.querySelectorAll('li.active').forEach(item => item.classList.remove('active'));
               li.classList.add('active');
             }
@@ -659,16 +669,11 @@ const ChatManager = {
         });
       }
 
-      // Setup 'New Conversation' button listener if not already done
-      // NOTE: This button now triggers the context setup modal via HTMX usually
       if (newBtn && !newBtn.dataset.listenerAttached) {
            newBtn.dataset.listenerAttached = 'true';
            newBtn.addEventListener('click', (e) => {
                e.preventDefault();
                console.log('[Chat Sidebar] "New Conversation" button clicked - should trigger context modal.');
-               // The actual modal trigger is likely via data-bs-toggle or hx-get on the button itself.
-               // If you need to *programmatically* trigger the NEW context setup:
-               // this.startNewChatContextSetup();
            });
       }
 
@@ -685,12 +690,8 @@ const ChatManager = {
     const newTitle = prompt('Enter new name for conversation:', currentTitle);
     if (newTitle && newTitle.trim() && newTitle.trim() !== currentTitle) {
        try {
-            await this.renameConversation(conv.id, newTitle.trim()); // Assume this method exists
-            await this.renderSidebarConversations(); // Refresh list
-            // Also update the title in the main chat view if it's the current one
-            if (conv.id === this.currentConversationId) {
-                // Potentially update a title element in the main chat area if one exists
-            }
+            await this.renameConversation(conv.id, newTitle.trim());
+            await this.renderSidebarConversations();
        } catch (renameError) { console.error("Error renaming conversation:", renameError); alert("Failed to rename conversation."); }
     }
   },
@@ -710,7 +711,6 @@ const ChatManager = {
          throw new Error(`Failed to rename conversation: ${response.status} ${errorData}`);
      }
       console.log(`[Chat API] Rename successful for ${conversationId}.`);
-      // No return needed, success is indicated by lack of error
   },
 
   /** Call API to delete a conversation */
@@ -727,7 +727,6 @@ const ChatManager = {
          throw new Error(`Failed to delete conversation: ${response.status} ${errorData}`);
      }
      console.log(`[Chat API] Delete successful for ${conversationId}.`);
-     // No return needed, success is indicated by lack of error (204 status)
   },
 
 
@@ -736,7 +735,7 @@ const ChatManager = {
   /** Initiates the setup process for a NEW chat context via modal. */
   async startNewChatContextSetup() {
     console.log('[Chat Context] Starting NEW context setup.');
-    this.currentConversationId = null; // Explicitly clear current convo ID
+    this.currentConversationId = null;
 
     const chatDisplay = document.getElementById('chat-message-list');
     const modifyContextControls = document.getElementById('chat-context-controls');
@@ -745,14 +744,12 @@ const ChatManager = {
     const modalElement = document.getElementById('contextModal');
     const sidebarList = document.getElementById('conversation-list');
 
-    // --- Reset Main Chat UI ---
     if (chatDisplay) chatDisplay.innerHTML = '<p class="text-muted small text-center">Setting up new adventure context...</p>';
     if (modifyContextControls) modifyContextControls.style.display = 'none';
     if (activeContextDisplay) activeContextDisplay.innerHTML = '';
-    if (sidebarList) { // Deactivate sidebar item if one was active
+    if (sidebarList) {
       sidebarList.querySelectorAll('li.active').forEach(li => li.classList.remove('active'));
     }
-    // --- End Reset Main Chat UI ---
 
     if (!modalContentArea || !modalElement) {
         console.error('[Chat Context] Modal elements not found (#modal-content-area, #contextModal)');
@@ -760,29 +757,25 @@ const ChatManager = {
         return;
     }
 
-    // Show loading state inside modal
     modalContentArea.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted small">Loading Setup...</p></div>`;
 
-    // Get/cache Bootstrap modal instance
     if (!this.contextModalInstance) {
         this.contextModalInstance = new bootstrap.Modal(modalElement);
     }
-    // Show the modal programmatically (if not already shown by data-bs-toggle)
     this.contextModalInstance.show();
 
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
     if (!token) {
         modalContentArea.innerHTML = `<div class="alert alert-danger m-3">Authentication required.</div>`;
-        return; // Keep modal open showing error
+        return;
     }
 
-    // --- Trigger HTMX Load ---
     try {
         if (window.htmx) {
              console.log('[Chat Context] Triggering HTMX GET for /api/v1/chat/setup/start');
              htmx.ajax('GET', '/api/v1/chat/setup/start', {
-                 target: '#modal-content-area', // Target the content area
-                 swap: 'innerHTML',             // Replace its content
+                 target: '#modal-content-area',
+                 swap: 'innerHTML',
                  headers: { 'Authorization': `Bearer ${token}` }
              });
         } else {
@@ -810,14 +803,12 @@ const ChatManager = {
         return;
     }
 
-    // Show loading state
     modalContentArea.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2 text-muted small">Loading Existing Context...</p></div>`;
 
-    // Get/cache modal instance
     if (!this.contextModalInstance) {
         this.contextModalInstance = new bootstrap.Modal(modalElement);
     }
-    this.contextModalInstance.show(); // Show modal
+    this.contextModalInstance.show();
 
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
     if (!token) {
@@ -825,7 +816,6 @@ const ChatManager = {
         return;
     }
 
-    // --- Trigger HTMX Load ---
     try {
          if (window.htmx) {
              console.log(`[Chat Context] Triggering HTMX GET for /api/v1/chat/setup/edit/${this.currentConversationId}`);
@@ -846,49 +836,42 @@ const ChatManager = {
   /** Updates the context display area (below input) with badges. */
    updateActiveContextDisplay(contextData) {
        const displayArea = document.getElementById('active-context-display');
-       if (!displayArea) return; // Element not found
-       // console.log("[Chat Context] Updating context display with:", contextData); // Verbose
+       if (!displayArea) return;
 
-       displayArea.innerHTML = ''; // Clear previous content
+       displayArea.innerHTML = '';
 
-       // Handle null/empty context
        if (!contextData || Object.keys(contextData).length === 0) {
            displayArea.innerHTML = '<span class="text-muted small fst-italic">Default Context</span>';
            return;
        }
 
        const badges = [];
-       // Define how to display each context key
        const displayMap = {
            goal: { label: "Goal", icon: "bi-bullseye" },
            genre_tone: { label: "Genre/Tone", icon: "bi-masks" },
-           game_system: { label: "System", icon: "bi-controller" }, // Changed icon
-           key_details: { label: "Details", icon: "bi-info-circle-fill", truncate: 30 } // Changed icon & truncate
+           game_system: { label: "System", icon: "bi-controller" },
+           key_details: { label: "Details", icon: "bi-info-circle-fill", truncate: 30 }
        };
 
-       // Generate badges based on available data and map
        for (const key in displayMap) {
            if (contextData[key]) {
                let value = contextData[key];
                const config = displayMap[key];
 
-               // Basic formatting (e.g., replace underscores, capitalize)
                if (key === 'goal') value = value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-               // Handle potential truncation
                const needsTruncation = config.truncate && value.length > config.truncate;
                const displayValue = needsTruncation ? value.substring(0, config.truncate - 3) + "..." : value;
-               const titleAttr = needsTruncation ? `title="${escapeHtml(value)}"` : ''; // Add full text as title
+               const titleAttr = needsTruncation ? `title="${escapeHtml(value)}"` : '';
 
                badges.push(
-                   `<span class="badge lh-base text-bg-light border me-1 mb-1" ${titleAttr}>` + // Use lighter bg/border
+                   `<span class="badge lh-base text-bg-light border me-1 mb-1" ${titleAttr}>` +
                    `<i class="bi ${config.icon} me-1"></i>${escapeHtml(displayValue)}` +
                    `</span>`
                );
            }
        }
 
-       // Display badges or a default message
        if (badges.length > 0) {
            displayArea.innerHTML = badges.join('');
        } else {
@@ -916,43 +899,35 @@ const ChatManager = {
     try {
         const triggers = JSON.parse(triggerHeader);
 
-        // --- Handle New Chat Creation ---
         if (triggers.newChatCreated) {
             console.log('[Chat HTMX] Handling newChatCreated:', triggers.newChatCreated);
-            const { id, title, context, initialMessagesGenerated } = triggers.newChatCreated; // <<< Extract new flag
+            const { id, title, context, initialMessagesGenerated } = triggers.newChatCreated;
 
-            if (this.contextModalInstance) this.contextModalInstance.hide(); // Hide modal first
+            if (this.contextModalInstance) this.contextModalInstance.hide();
 
-            this.currentConversationId = id; // Set new convo as active BEFORE loading it
-            this.renderSidebarConversations(); // Refresh sidebar (will mark new one active)
+            this.currentConversationId = id;
+            this.renderSidebarConversations();
 
-            // --- MODIFIED LOGIC ---
             if (initialMessagesGenerated) {
                 console.log('[Chat HTMX] Initial messages were generated. Loading conversation view.');
-                // Load the conversation which will display the generated messages
                 this.loadAndDisplayConversation(id).then(() => {
-                     // Optional: Focus input after loading finishes
                      document.getElementById('ai-prompt-input')?.focus();
-                     this.fetchAndUpdateCreditsDisplay(); // Update credits display
+                     this.fetchAndUpdateCreditsDisplay();
                 });
             } else {
                 console.log('[Chat HTMX] No initial messages generated. Displaying setup confirmation.');
-                // Fallback to original behavior: show context set message
                 const chatDisplay = document.getElementById('chat-message-list');
-                if(chatDisplay) chatDisplay.innerHTML = ''; // Clear "Setting up..." or previous content
+                if(chatDisplay) chatDisplay.innerHTML = '';
                 renderMessage('ai', `Context set for "${escapeHtml(title)}". What's your first prompt?`, chatDisplay);
-                this.updateActiveContextDisplay(context); // Show context badges
+                this.updateActiveContextDisplay(context);
                 const modifyBtn = document.getElementById('chat-context-controls');
-                if(modifyBtn) modifyBtn.style.display = 'flex'; // Show modify button
+                if(modifyBtn) modifyBtn.style.display = 'flex';
                 scrollToBottom('ai-result-output', false);
-                document.getElementById('ai-prompt-input')?.focus(); // Focus input
-                 this.fetchAndUpdateCreditsDisplay(); // Update credits display here too
+                document.getElementById('ai-prompt-input')?.focus();
+                 this.fetchAndUpdateCreditsDisplay();
             }
-            // --- END MODIFIED LOGIC ---
 
-        // --- Handle Existing Chat Context Update ---
         } else if (triggers.chatContextUpdated) {
-            // (Keep existing logic for context update)
             console.log('[Chat HTMX] Handling chatContextUpdated:', triggers.chatContextUpdated);
             const { id, context } = triggers.chatContextUpdated;
             if (this.contextModalInstance) this.contextModalInstance.hide();
@@ -963,7 +938,7 @@ const ChatManager = {
                  console.log(`[Chat Context] Context updated for ${id}, but not the current view (${this.currentConversationId}).`);
                  this.renderSidebarConversations();
             }
-             this.fetchAndUpdateCreditsDisplay(); // Update credits display on context update too
+             this.fetchAndUpdateCreditsDisplay();
         } else {
             console.warn('[Chat HTMX] Unknown trigger in HX-Trigger header:', triggers);
              if (this.contextModalInstance) this.contextModalInstance.hide();
@@ -988,24 +963,21 @@ const ChatManager = {
     const promptInput = document.getElementById('ai-prompt-input');
     const normalZoomBtn = document.getElementById(CHAT_ZOOM_TOGGLE_NORMAL_ID);
     const fullscreenZoomBtn = document.getElementById(CHAT_ZOOM_TOGGLE_FULLSCREEN_ID);
-    // Context buttons - Note: New Chat button might be handled by HTMX directly
     const modifyContextButton = document.getElementById('modify-context-button');
-    const newContextButton = document.getElementById('new-conversation-btn'); // If triggering programmatically
+    // const newContextButton = document.getElementById('new-conversation-btn'); // If needed programmatically
 
-    // --- Prompt Input ---
     if (promptInput) {
       promptInput.addEventListener('input', () => setTextareaHeight(promptInput, true));
       promptInput.addEventListener('focus', () => setTextareaHeight(promptInput));
       promptInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
-          chatForm?.requestSubmit(); // Submit form on Enter (if form exists)
+          chatForm?.requestSubmit();
         }
       });
-      setTextareaHeight(promptInput); // Initial check
+      setTextareaHeight(promptInput);
     } else { console.warn("[Chat Events] Prompt input #ai-prompt-input not found."); }
 
-    // --- Zoom Buttons ---
     if (normalZoomBtn) {
          normalZoomBtn.addEventListener('click', () => this._performFullscreenToggle());
     } else { console.warn(`[Chat Events] Normal zoom button #${CHAT_ZOOM_TOGGLE_NORMAL_ID} not found.`); }
@@ -1014,11 +986,10 @@ const ChatManager = {
          fullscreenZoomBtn.addEventListener('click', () => this._performFullscreenToggle());
     } else { console.warn(`[Chat Events] Fullscreen zoom button #${CHAT_ZOOM_TOGGLE_FULLSCREEN_ID} not found.`); }
 
-    // --- Chat Form Submit ---
     if (chatForm) {
       chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const currentPromptInput = document.getElementById('ai-prompt-input'); // Re-fetch elements inside handler
+        const currentPromptInput = document.getElementById('ai-prompt-input');
         const chatDisplay = document.getElementById('chat-message-list');
         const currentGenerateButton = document.getElementById('ai-generate-button');
         const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
@@ -1027,95 +998,82 @@ const ChatManager = {
           console.error("[Chat Events] Form submit: Missing required elements."); return;
         }
         const userMessage = currentPromptInput.value.trim();
-        if (!userMessage) return; // Ignore empty submission
+        if (!userMessage) return;
 
-        // --- Disable UI ---
         currentPromptInput.disabled = true;
         currentGenerateButton.disabled = true;
         currentLoadingIndicator.style.display = 'inline-block';
 
-        // --- Render User Message ---
         removeInitialPrompt(chatDisplay);
-        renderMessage('user', userMessage, chatDisplay, null, // Pass null ID initially
-             async (deleteIdx) => { await this.deleteMessageAndAfter(deleteIdx); } // Delete handler
+
+        const userMessageIndex = chatDisplay.children.length;
+
+        const userMessageDeleteCallback = async (deleteIdxFromUI) => {
+          try {
+            console.log(`[Chat][Delete CB Submit] Invoked for new user message. Index from UI: ${deleteIdxFromUI}, Calculated index: ${userMessageIndex}`);
+            await this.deleteMessageAndAfter(deleteIdxFromUI);
+          } catch (e) {
+            console.error(`[Chat][Delete CB Submit] Error in delete callback for new user msg (calc index ${userMessageIndex}):`, e);
+            alert("An error occurred while trying to delete your message.");
+          }
+        };
+
+        renderMessage('user', userMessage, chatDisplay, null,
+             userMessageDeleteCallback,
+             userMessageIndex
         );
-        const aiDiv = renderAIPlaceholder(chatDisplay); // Render AI placeholder
-        scrollToBottom('ai-result-output', false); // Scroll user message into view
+        const aiDiv = renderAIPlaceholder(chatDisplay);
+        scrollToBottom('ai-result-output', false);
 
-        // --- Call API Handler ---
-        // Pass elements needed by the handler
         await this.handleAPISubmission(userMessage, aiDiv, currentPromptInput);
-
-        // Note: handleAPISubmission re-enables UI in its finally block
       });
     } else { console.warn("[Chat Events] Chat form #ai-generation-form not found."); }
 
-    // --- Context Modal Buttons ---
-    // Modify button (in main chat view) should trigger edit modal
     if (modifyContextButton) {
         modifyContextButton.addEventListener('click', (e) => {
             e.preventDefault();
             this.editCurrentChatContext();
-            
             console.log("[Chat Events] Modify context modal loaded.");
         });
     } else { console.warn("[Chat Events] Modify context button #modify-context-button not found."); }
 
-
-
-    // --- HTMX Response Listener ---
-    // Listen on the body for events bubbling up after HTMX swaps content
     console.log("[Chat Events] Setting up HTMX afterOnLoad listener on body.");
     document.body.addEventListener('htmx:afterOnLoad', (event) => {
-        // Delegate handling to a dedicated method
         this._handleHtmxSaveResponse(event);
     });
 
     console.log("[Chat Events] All chat event listeners setup completed.");
-  }, // End setupEventListeners
+  },
 
 
   // --- HELPER METHODS ---
 
-  /**
-   * Helper to add delete buttons to the last two messages (user, ai)
-   * after a successful AI response, using IDs from payload if available.
-   */
   _addDeleteButtonsToLatestMessages(chatDisplay, payload) {
       if (!chatDisplay) return;
       const messages = chatDisplay.children;
       const lastIndex = messages.length - 1;
 
-      // AI message (last element)
       if (lastIndex >= 0) {
           const aiMsgDiv = messages[lastIndex];
           if (aiMsgDiv.classList.contains('ai-message')) {
-              // Use payload ID if available, otherwise element might already have one
               const aiId = payload?.aiMessageId || aiMsgDiv.dataset.messageId;
-              if (aiId) aiMsgDiv.dataset.messageId = aiId; // Ensure ID is set
+              if (aiId) aiMsgDiv.dataset.messageId = aiId;
               this.addDeleteButtonAndListener(aiMsgDiv, lastIndex);
           }
       }
-      // User message (second to last element)
       if (lastIndex >= 1) {
           const userMsgDiv = messages[lastIndex - 1];
           if (userMsgDiv.classList.contains('user-message')) {
               const userId = payload?.userMessageId || userMsgDiv.dataset.messageId;
-               if (userId) userMsgDiv.dataset.messageId = userId; // Ensure ID is set
+               if (userId) userMsgDiv.dataset.messageId = userId;
               this.addDeleteButtonAndListener(userMsgDiv, lastIndex - 1);
           }
       }
   },
 
-  /**
-   * Helper function to add a delete button and its listener to a message element.
-   * Ensures button isn't added twice and uses correct 'this' context.
-   * @param {HTMLElement} messageDiv The message div element.
-   * @param {number} index The index of this message in the chat list.
-   */
    addDeleteButtonAndListener(messageDiv, index) {
     if (!messageDiv || messageDiv.querySelector('.message-delete-btn')) {
-      return; // Skip if no div or button already exists
+      return;
     }
     if (typeof this.deleteMessageAndAfter !== 'function') {
       console.error("[Chat][addDeleteButton] deleteMessageAndAfter method missing.");
@@ -1123,30 +1081,23 @@ const ChatManager = {
     }
 
     const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn btn-link btn-sm p-0 ms-2 message-delete-btn text-muted'; // Subtle styling
+    deleteBtn.className = 'btn btn-link btn-sm p-0 ms-2 message-delete-btn text-muted';
     deleteBtn.title = 'Delete message and following';
     deleteBtn.innerHTML = '<i class="bi bi-x-circle"></i>';
     deleteBtn.type = 'button';
-    deleteBtn.style.opacity = '0.6'; // Make it less prominent initially
-    deleteBtn.style.fontSize = '0.8em'; // Smaller icon
+    deleteBtn.style.opacity = '0.6';
+    deleteBtn.style.fontSize = '0.8em';
 
-    // Hover effect for visibility
     messageDiv.addEventListener('mouseenter', () => deleteBtn.style.opacity = '1');
     messageDiv.addEventListener('mouseleave', () => deleteBtn.style.opacity = '0.6');
 
-    // Use arrow function for listener to keep 'this' as ChatManager
     deleteBtn.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent message selection/focus
-      // Confirmation is now inside the deleteMessageAndAfter call in renderMessage/handleAPISubmission
-      // This listener just calls the main delete logic.
+      e.stopPropagation();
       this.deleteMessageAndAfter(index).catch(error => {
            console.error(`[Chat][Delete] Error during delete execution for index ${index}:`, error);
            alert("An error occurred trying to delete messages.");
       });
     });
-
-    // Append to a consistent place within the message div, e.g., a header or actions container if one exists
-    // For now, appending directly to the message div
     messageDiv.appendChild(deleteBtn);
   },
 
@@ -1157,41 +1108,54 @@ const ChatManager = {
 document.addEventListener('DOMContentLoaded', () => {
   console.log("[Chat Main] DOMContentLoaded - Initializing Chat System Setup");
 
-  // Hide context controls initially until a conversation is loaded
   const modifyContextControls = document.getElementById('chat-context-controls');
   if (modifyContextControls) {
       modifyContextControls.style.display = 'none';
   }
 
-  // Expose ChatManager globally for auth.js and potentially debugging
-  // This MUST happen before setupEventListeners is called if listeners rely on the global object
   window.ChatManager = ChatManager;
   console.log("[Chat Main] ChatManager exposed on window.");
 
   document.body.addEventListener('htmx:configRequest', function(evt) {
     const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-    const requestPath = evt.detail.path; // Get the path being requested
+    let requestPath = evt.detail.path;
+    const targetElement = evt.detail.elt;
 
-    // Only add auth header if token exists AND path starts with /api/v1/ (or your API prefix)
-    // Avoid adding it to external requests or static file requests if HTMX was used for them.
-    if (token && requestPath.startsWith('/api/v1/')) {
-        evt.detail.headers['Authorization'] = `Bearer ${token}`;
-        console.log(`[HTMX Config] Added Auth header to: ${requestPath}`); // More specific log
-    } else if (!token && requestPath.startsWith('/api/v1/')) {
-         console.warn(`[HTMX Config] No token found for API request: ${requestPath}`);
+    let isApiRequest = false;
+    try {
+        const url = new URL(requestPath, window.location.origin);
+        if (url.origin === window.location.origin && url.pathname.startsWith('/api/v1/')) {
+            isApiRequest = true;
+            requestPath = url.pathname + url.search + url.hash;
+        } else if (!requestPath.includes('://') && requestPath.startsWith('/api/v1/')) {
+            isApiRequest = true;
+        }
+    } catch (e) {
+        if (requestPath.startsWith('/api/v1/')) {
+            isApiRequest = true;
+        }
     }
-    // No else needed for non-API paths
-});
-console.log("[Chat Main] HTMX configRequest listener setup.");
 
-  // Provide the specific initialization function expected by auth.js
+    // console.log(`[HTMX Config] Processing request to: ${evt.detail.path}. Relative path for API check: ${requestPath}. Is API: ${isApiRequest}. Triggered by:`, targetElement);
+    // console.log(`[HTMX Config] Current Access Token: ${token ? 'Token Present' : 'NO TOKEN'}`);
+
+    if (token && isApiRequest) {
+        evt.detail.headers['Authorization'] = `Bearer ${token}`;
+        // console.log(`[HTMX Config] Added Auth header to: ${evt.detail.path}`);
+    } else if (!token && isApiRequest) {
+         console.warn(`[HTMX Config] No token found for API request: ${evt.detail.path}. Request will likely fail with 401.`);
+    } else {
+        // console.log(`[HTMX Config] No Auth header added (isApiRequest: ${isApiRequest}, tokenPresent: ${!!token}) for: ${evt.detail.path}`);
+    }
+  });
+  console.log("[Chat Main] HTMX configRequest listener setup.");
+
   window.initializeChat = () => {
       try {
           console.log("[Chat Main] Global initializeChat() called.");
-          ChatManager.initializeChat(); // Call the method on the object
+          ChatManager.initializeChat();
       } catch (e) {
           console.error("[Chat Main] Error executing initializeChat via global function:", e);
-          // Display error to user?
           const chatDisplay = document.getElementById('chat-message-list');
           if(chatDisplay) renderChatError("Failed to initialize chat system. Please refresh.", chatDisplay);
       }
@@ -1199,15 +1163,13 @@ console.log("[Chat Main] HTMX configRequest listener setup.");
    window.teardownChat = () => {
       try {
           console.log("[Chat Main] Global teardownChat() called.");
-          ChatManager.teardownChat(); // Call the method on the object
+          ChatManager.teardownChat();
       } catch (e) {
           console.error("[Chat Main] Error executing teardownChat via global function:", e);
       }
   };
   console.log("[Chat Main] Global initializeChat() and teardownChat() functions defined.");
 
-
-  // Setup ChatManager's internal event listeners now that the DOM is ready and ChatManager exists
   try {
       ChatManager.setupEventListeners();
       console.log("[Chat Main] ChatManager event listeners setup successfully.");
@@ -1215,73 +1177,24 @@ console.log("[Chat Main] HTMX configRequest listener setup.");
        console.error("[Chat Main] Error calling ChatManager.setupEventListeners:", e);
   }
 
-  // Note: The actual chat initialization (loading data etc.) is deferred
-  // It will be triggered by auth.js calling window.initializeChat() when ready.
   console.log("[Chat Main] DOM Ready setup complete. Waiting for auth module to initialize chat.");
 });
 
 
-/**
- * Toggles the visibility of an "other" text input field based on a select element's value.
- * @param {string} selectElementId - The ID of the <select> element.
- * @param {string} otherWrapperId - The ID of the <div> wrapping the "other" text input.
- * @param {string} otherInputId - The ID of the "other" <input type="text"> element.
- */
-if (typeof window.toggleOtherFieldVisibility !== 'function') { // Define only if not already defined
+if (typeof window.toggleOtherFieldVisibility !== 'function') {
   window.toggleOtherFieldVisibility = function(selectElementId, otherWrapperId, otherInputId) {
       const selectElement = document.getElementById(selectElementId);
       const otherWrapper = document.getElementById(otherWrapperId);
-      const otherInput = document.getElementById(otherInputId); // Optional: for focusing or clearing
+      // const otherInput = document.getElementById(otherInputId);
 
       if (!selectElement || !otherWrapper) {
-          // console.warn("Toggle elements not found for select:", selectElementId, "or wrapper:", otherWrapperId);
           return;
       }
 
       if (selectElement.value === 'other') {
           otherWrapper.classList.remove('d-none');
-          // if (otherInput) otherInput.focus(); // Optional
       } else {
           otherWrapper.classList.add('d-none');
-          // if (otherInput) otherInput.value = ''; // Optional: clear if hiding and you want this behavior
       }
   };
 }
-
-// static/chat.js
-document.body.addEventListener('htmx:configRequest', function(evt) {
-  const token = window.getCurrentAccessToken ? window.getCurrentAccessToken() : null;
-  let requestPath = evt.detail.path; // Path or full URL
-  const targetElement = evt.detail.elt;
-
-  // Attempt to get a relative path if it's an absolute URL for the current host
-  let isApiRequest = false;
-  try {
-      const url = new URL(requestPath, window.location.origin); // Resolve against current origin
-      if (url.origin === window.location.origin && url.pathname.startsWith('/api/v1/')) {
-          isApiRequest = true;
-          requestPath = url.pathname + url.search + url.hash; // Log the relative part for clarity
-      } else if (!requestPath.includes('://') && requestPath.startsWith('/api/v1/')) {
-          // It's already a relative path starting with /api/v1/
-          isApiRequest = true;
-      }
-  } catch (e) {
-      // If requestPath is not a valid URL (e.g., already relative), check it directly
-      if (requestPath.startsWith('/api/v1/')) {
-          isApiRequest = true;
-      }
-      // console.warn("[HTMX Config] Error parsing requestPath as URL, falling back to direct check:", e);
-  }
-
-  console.log(`[HTMX Config] Processing request to: ${evt.detail.path}. Relative path for API check: ${requestPath}. Is API: ${isApiRequest}. Triggered by:`, targetElement);
-  console.log(`[HTMX Config] Current Access Token: ${token ? 'Token Present' : 'NO TOKEN'}`);
-
-  if (token && isApiRequest) {
-      evt.detail.headers['Authorization'] = `Bearer ${token}`;
-      console.log(`[HTMX Config] Added Auth header to: ${evt.detail.path}`);
-  } else if (!token && isApiRequest) {
-       console.warn(`[HTMX Config] No token found for API request: ${evt.detail.path}. Request will likely fail with 401.`);
-  } else {
-      console.log(`[HTMX Config] No Auth header added (isApiRequest: ${isApiRequest}, tokenPresent: ${!!token}) for: ${evt.detail.path}`);
-  }
-});
