@@ -18,6 +18,149 @@ const CHAT_CONTEXT_CONTROLS_ID = 'chat-context-controls'; // <-- New constant
 // const CHAT_ZOOM_TOGGLE_NORMAL_ID = 'chat-zoom-toggle-normal'; // Defined in chat.js
 // const CHAT_ZOOM_TOGGLE_FULLSCREEN_ID = 'chat-zoom-toggle-fullscreen'; // Defined in chat.js
 
+// This can go in a global script tag in base.html or a utils.js file
+
+/**
+ * Shows a Bootstrap confirmation modal and returns a Promise.
+ * @param {string} message The message to display in the modal.
+ * @param {string} [confirmButtonText='Confirm'] Text for the confirm button.
+ * @param {string} [cancelButtonText='Cancel'] Text for the cancel button.
+ * @param {string} [title='Confirm Action'] Title for the modal. HTML is allowed.
+ * @param {'primary'|'danger'|'warning'|'info'|string} [confirmButtonType='danger'] Determines the style of the confirm button (e.g., 'danger' for custom-btn-danger).
+ * @param {'secondary'|'outline-themed'|string} [cancelButtonType='outline-themed'] Determines the style of the cancel button.
+ * @returns {Promise<boolean>} A Promise that resolves with true if confirmed, false if cancelled.
+ */
+export function showConfirmationModal(
+  message,
+  confirmButtonText = 'Confirm',
+  cancelButtonText = 'Cancel',
+  title = 'Confirm Action <i class="bi bi-exclamation-triangle-fill ms-2 text-warning"></i>',
+  confirmButtonType = 'danger', // e.g., 'danger', 'primary'
+  cancelButtonType = 'outline-themed' // e.g., 'outline-themed', 'secondary'
+) {
+  return new Promise((resolve) => {
+      const modalElement = document.getElementById('confirmationModal');
+      if (!modalElement) {
+          console.error('Confirmation modal element #confirmationModal not found!');
+          // Fallback to ugly, blocking browser confirm if modal HTML is missing
+          resolve(window.confirm(message));
+          return;
+      }
+
+      const modalTitleElement = modalElement.querySelector('#confirmationModalLabel');
+      const modalMessageElement = modalElement.querySelector('#confirmationModalMessage');
+      const confirmButton = modalElement.querySelector('#confirmationModalConfirm');
+      const cancelButton = modalElement.querySelector('#confirmationModalCancel');
+
+      if (!modalTitleElement || !modalMessageElement || !confirmButton || !cancelButton) {
+          console.error('One or more #confirmationModal sub-elements not found! Check IDs: confirmationModalLabel, confirmationModalMessage, confirmationModalConfirm, confirmationModalCancel.');
+          resolve(window.confirm(message)); // Fallback
+          return;
+      }
+
+      // Ensure Bootstrap's Modal class is available
+      if (typeof bootstrap === 'undefined' || typeof bootstrap.Modal === 'undefined') {
+          console.error('Bootstrap Modal class not found. Make sure Bootstrap JS is loaded before this script or that bootstrap is globally available.');
+          resolve(window.confirm(message)); // Fallback
+          return;
+      }
+
+      // Set content
+      modalTitleElement.innerHTML = title; // Use innerHTML to allow icons/HTML in title
+      modalMessageElement.textContent = message;
+      confirmButton.textContent = confirmButtonText;
+      cancelButton.textContent = cancelButtonText;
+
+      // --- Apply CSS Classes for Buttons ---
+      let confirmClasses = 'btn custom-btn'; // Base classes
+      if (confirmButtonType === 'danger') {
+          confirmClasses += ' custom-btn-danger';
+      } else if (confirmButtonType === 'primary') {
+          confirmClasses += ' custom-btn-primary';
+      } else if (confirmButtonType) {
+          // For other standard bootstrap types if you ever use them e.g. 'info', 'warning'
+          // Ensure you have .custom-btn-info or .custom-btn-warning CSS if you want them themed
+          // or let Bootstrap's btn-info / btn-warning apply if no custom variant.
+          confirmClasses += ` btn-${confirmButtonType}`; // Standard Bootstrap if no custom variant matches
+      }
+      confirmButton.className = confirmClasses;
+
+      let cancelClasses = 'btn custom-btn'; // Base classes
+      if (cancelButtonType === 'outline-themed') {
+          cancelClasses += ' custom-btn-outline-themed';
+      } else if (cancelButtonType === 'secondary') {
+          // Assuming you might have .custom-btn-secondary or rely on Bootstrap's .btn-secondary themed by your CSS
+          cancelClasses += ' custom-btn-secondary'; // Or just 'btn-secondary' if .custom-btn-secondary isn't a defined variant
+      } else if (cancelButtonType) {
+          cancelClasses += ` btn-${cancelButtonType}`;
+      }
+      cancelButton.className = cancelClasses;
+
+
+      // Get or create a Bootstrap modal instance
+      const bsModal = bootstrap.Modal.getOrCreateInstance(modalElement);
+
+      let hasBeenResolved = false; // Flag to prevent multiple resolves
+
+      // Define handlers
+      const onConfirm = () => {
+          if (hasBeenResolved) return;
+          hasBeenResolved = true;
+          cleanupListeners();
+          bsModal.hide(); // Hiding will trigger 'hidden.bs.modal'
+          resolve(true);
+      };
+
+      const onCancel = () => {
+          if (hasBeenResolved) return;
+          hasBeenResolved = true;
+          cleanupListeners();
+          bsModal.hide(); // Hiding will trigger 'hidden.bs.modal'
+          resolve(false);
+      };
+
+      // This handler for hidden.bs.modal ensures that if the modal is dismissed
+      // by ESC key (if keyboard=true) or backdrop click (if backdrop is not static),
+      // it's treated as a cancel.
+      const onModalHidden = () => {
+          if (!hasBeenResolved) { // If not already resolved by button click
+              hasBeenResolved = true;
+              resolve(false); // Treat as cancel
+          }
+          // Listeners are cleaned up by onConfirm/onCancel, or here if they haven't fired
+          cleanupListeners();
+      };
+
+      // Function to remove event listeners
+      const cleanupListeners = () => {
+          confirmButton.removeEventListener('click', onConfirm);
+          cancelButton.removeEventListener('click', onCancel);
+          modalElement.removeEventListener('hidden.bs.modal', onModalHidden);
+      };
+
+      // --- Attach Event Listeners ---
+      // It's crucial to remove old listeners if this function can be called multiple times
+      // for the same modal. However, since we define handlers inside this scope,
+      // they are unique each time. The main concern is multiple 'hidden.bs.modal' listeners.
+      // So, we call cleanupListeners first to be absolutely sure.
+      cleanupListeners(); // Clean up any stray listeners from a previous, ungraceful close
+
+      confirmButton.addEventListener('click', onConfirm);
+      cancelButton.addEventListener('click', onCancel);
+
+      // data-bs-dismiss="modal" on the static cancel button will also trigger hide and then 'hidden.bs.modal'.
+      // This event listener handles cases where the modal is dismissed NOT by the explicit cancel button,
+      // e.g. if you were to change data-bs-keyboard to true or backdrop to non-static.
+      modalElement.addEventListener('hidden.bs.modal', onModalHidden, { once: true });
+
+
+      // Show the modal
+      if (!bsModal._isShown) {
+          bsModal.show();
+      }
+  });
+}
+
 
 /**
  * Update Navbar: Toggle visibility of login button vs user dropdown

@@ -109,6 +109,27 @@
               </div>
             </div>
           </div>
+
+                  <!-- === GENERIC CONFIRMATION MODAL === -->
+        <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-sm modal-dialog-centered"> {# modal-sm for a more compact confirm dialog #}
+              <div class="modal-content text-light" style="background-color: var(--color-bg-light); border: 1px solid var(--color-border);">
+                <div class="modal-header" style="border-bottom: 1px solid var(--color-border);">
+                  <h5 class="modal-title" id="confirmationModalLabel"><i class="bi bi-question-circle-fill me-2 text-warning"></i> Confirm Action</h5>
+                  {# No close button in header, force choice via footer buttons #}
+                </div>
+                <div class="modal-body">
+                  <p id="confirmationModalMessage" class="mb-0">Are you sure?</p> {# Default message, will be replaced #}
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid var(--color-border); justify-content: space-between;">
+                  <button type="button" class="btn btn-secondary custom-btn custom-btn-outline" data-bs-dismiss="modal" id="confirmationModalCancel">Cancel</button>
+                  <button type="button" class="btn btn-danger custom-btn custom-btn-danger" id="confirmationModalConfirm">Confirm</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        <!-- === END GENERIC CONFIRMATION MODAL === -->
+
           <!-- === END MODAL === -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
@@ -160,6 +181,7 @@ document.body.addEventListener('closeModal', (event) => {
   
     </script>
 
+    <script type="module" src="{{ url_for('static', path='ui.js') }}"></script>
     <script type="module" src="{{ url_for('static', path='chat.js') }}"></script>
     <script type="module" src="{{ url_for('static', path='auth.js') }}"></script>
 

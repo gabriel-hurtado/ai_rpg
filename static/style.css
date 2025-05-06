@@ -555,3 +555,117 @@ footer .container p {
 body.chat-fullscreen-active #chat-context-controls #modify-context-button {
     display: inline-block !important; /* Or 'block' or 'flex' if needed, make it visible */
 }
+
+
+/* ==========================================================================
+   4. Buttons (.custom-btn)
+   ========================================================================== */
+   .custom-btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px; /* Default pill shape */
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-primary);
+    /* Remove 'border: none;' from the base .custom-btn if variants will define borders.
+       Instead, set a default transparent border that can be overridden. */
+    border: 1px solid transparent; /* Default transparent border */
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+    box-shadow: var(--shadow-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-align: center;
+    vertical-align: middle;
+    user-select: none;
+    /* Base colors - these will be overridden by variants */
+    background-color: transparent; /* Default to transparent bg */
+    color: var(--color-text-primary); /* Default text color */
+}
+.custom-btn:disabled {
+    pointer-events: none;
+    opacity: 0.65;
+}
+
+/* ... your existing .custom-btn-primary, .custom-btn-warning ... */
+
+/* MODIFIED: .custom-btn-secondary (Example if you use it for cancel) */
+.custom-btn.custom-btn-secondary { /* Add .custom-btn for specificity */
+    background: var(--color-bg-light);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary); /* Explicitly define border */
+    box-shadow: none;
+}
+.custom-btn.custom-btn-secondary:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: var(--color-bg-dark);
+    border-color: var(--color-primary); /* Ensure border color is part of hover */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.25);
+}
+
+
+/* --- STYLES FOR MODAL BUTTONS --- */
+
+/* Base for custom buttons within the modal footer */
+#confirmationModal .modal-footer .custom-btn {
+    /* These will override or add to the base .custom-btn styles */
+    padding: 0.6rem 1.2rem;         /* Specific padding for modal */
+    font-size: 0.9rem;              /* Specific font size for modal */
+    min-width: 90px;                /* Specific min-width for modal */
+    border-radius: var(--border-radius-md); /* Override pill shape for modal: more squared */
+    /* Ensure box-shadow is present or reset for modal buttons if needed */
+    box-shadow: var(--shadow-sm); /* Re-apply or adjust if base .custom-btn was different */
+}
+
+/* "Confirm" Button Style (Danger variant) for MODAL */
+#confirmationModal .modal-footer .custom-btn.custom-btn-danger {
+    background-color: var(--color-danger) !important; /* Use !important judiciously for overrides if needed */
+    color: var(--color-text-headings) !important;
+    border: 1px solid var(--color-danger) !important; /* Ensure border is explicitly set */
+}
+#confirmationModal .modal-footer .custom-btn.custom-btn-danger:hover:not(:disabled) {
+    background-color: #c53030 !important; /* Manually darkened shade */
+    border-color: #c53030 !important;
+    color: var(--color-text-headings) !important;
+    /* transform and box-shadow can be inherited or re-stated */
+}
+
+/* "Confirm" Button Style (Primary variant for non-destructive confirms) for MODAL */
+#confirmationModal .modal-footer .custom-btn.custom-btn-primary {
+    background-color: var(--color-primary) !important;
+    color: var(--color-bg-dark) !important;
+    border: 1px solid var(--color-primary) !important;
+}
+#confirmationModal .modal-footer .custom-btn.custom-btn-primary:hover:not(:disabled) {
+    background-color: var(--color-warning) !important;
+    border-color: var(--color-warning) !important;
+    color: var(--color-bg-dark) !important;
+}
+
+/* "Cancel" Button Style (Outline variant) for MODAL */
+#confirmationModal .modal-footer .custom-btn.custom-btn-outline-themed {
+    background-color: transparent !important;
+    color: var(--color-text-secondary) !important;
+    border: 1px solid var(--color-border) !important; /* Use your subtle border */
+}
+#confirmationModal .modal-footer .custom-btn.custom-btn-outline-themed:hover:not(:disabled) {
+    background-color: var(--color-bg-lighter) !important;
+    color: var(--color-text-primary) !important;
+    border-color: var(--color-text-secondary) !important; /* More prominent border on hover */
+}
+
+/* If you use .custom-btn-secondary for cancel in the modal: */
+#confirmationModal .modal-footer .custom-btn.custom-btn-secondary {
+    background-color: var(--color-bg-light) !important;
+    color: var(--color-primary) !important;
+    border: 1px solid var(--color-primary) !important;
+}
+#confirmationModal .modal-footer .custom-btn.custom-btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-primary) !important;
+    color: var(--color-bg-dark) !important;
+    border-color: var(--color-primary) !important;
+}
+
+
+/* --- END OF MODAL BUTTON STYLES --- */

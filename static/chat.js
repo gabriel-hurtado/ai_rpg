@@ -5,6 +5,7 @@
 import { escapeHtml, setTextareaHeight, scrollToBottom } from './chatUtils.js';
 import { renderMessage, renderAIPlaceholder, renderChatError, removeInitialPrompt } from './chatUI.js';
 import { fetchConversations, fetchConversationById, sendChatMessage } from './chatApi.js';
+import { showConfirmationModal } from './ui.js';
 
 // --- Constants ---
 const CHAT_ZOOM_TOGGLE_NORMAL_ID = 'chat-zoom-toggle-normal';
@@ -401,43 +402,73 @@ const ChatManager = {
                                precedingUserElement;
           const userPromptText = contentElement.textContent?.trim() || '';
 
-          if (userPromptText &&
-              confirm('This AI message appears unsaved or has a temporary ID. Would you like to remove it and try regenerating the response from the previous user prompt?')) {
+          if (userPromptText) {
+            const confirmedRegeneration = await showConfirmationModal(
+                'This AI message appears unsaved or has a temporary ID. Would you like to remove it and try regenerating the response from the previous user prompt?',
+                'Regenerate', // Confirm button text
+                'Cancel',     // Cancel button text
+                'Unsaved AI Message <i class="bi bi-lightbulb-fill ms-1 text-info"></i>', // Modal Title
+                'primary'     // Confirm button type (e.g., 'primary' or 'info')
+            );
 
-            console.log('[Chat][Delete/Regen] User opted to regenerate unsaved AI message. Prompt:', userPromptText);
+            if (confirmedRegeneration) {
+                console.log('[Chat][Delete/Regen] User opted to regenerate unsaved AI message. Prompt:', userPromptText);
 
-            const messagesToRemoveFromUI = currentMessages.slice(messageIndex);
-            messagesToRemoveFromUI.forEach(msg => msg.remove());
-            console.log(`[Chat][Delete/Regen] Removed ${messagesToRemoveFromUI.length} message elements from UI starting at index ${messageIndex}.`);
+                const messagesToRemoveFromUI = currentMessages.slice(messageIndex);
+                messagesToRemoveFromUI.forEach(msg => msg.remove());
+                console.log(`[Chat][Delete/Regen] Removed ${messagesToRemoveFromUI.length} message elements from UI starting at index ${messageIndex}.`);
 
-            const textareaElement = document.getElementById('ai-prompt-input');
-            const currentChatDisplay = document.getElementById('chat-message-list');
-            const newAiMessageDiv = renderAIPlaceholder(currentChatDisplay);
+                const textareaElement = document.getElementById('ai-prompt-input');
+                const currentChatDisplay = document.getElementById('chat-message-list');
+                const newAiMessageDiv = renderAIPlaceholder(currentChatDisplay);
 
-            const currentGenerateButton = document.getElementById('ai-generate-button');
-            const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
+                const currentGenerateButton = document.getElementById('ai-generate-button');
+                const currentLoadingIndicator = document.getElementById('ai-loading-indicator');
 
-            if(textareaElement) textareaElement.disabled = true;
-            if(currentGenerateButton) currentGenerateButton.disabled = true;
-            if(currentLoadingIndicator) currentLoadingIndicator.style.display = 'inline-block';
+                if(textareaElement) textareaElement.disabled = true;
+                if(currentGenerateButton) currentGenerateButton.disabled = true;
+                if(currentLoadingIndicator) currentLoadingIndicator.style.display = 'inline-block';
 
-            await this.handleAPISubmission(userPromptText, newAiMessageDiv, textareaElement);
-            console.log('[Chat][Delete/Regen] Regeneration submission for unsaved AI message initiated.');
-            return;
+                await this.handleAPISubmission(userPromptText, newAiMessageDiv, textareaElement);
+                console.log('[Chat][Delete/Regen] Regeneration submission for unsaved AI message initiated.');
+                return; // Exit after attempting regeneration
+            } else {
+                console.log('[Chat][Delete/Regen] User cancelled regeneration for unsaved AI message.');
+                // No further action needed if cancelled here, the original "Cannot delete" will show below if applicable
+            }
           }
+          // END OF MODIFIED PART
         }
       }
 
-      alert('Cannot delete message: Missing server ID. Please wait for the message to fully save.');
+      // If not an AI message eligible for regeneration, or user declined the regen prompt,
+      // or userPromptText was empty, show original error.
+      // You might also want to replace this alert with a nicer notification.
+      await showConfirmationModal( // Example of using it for an "alert"
+        'Cannot delete message: Missing server ID. Please wait for the message to fully save or ensure there was a preceding user prompt for regeneration.',
+        'OK', // Confirm button text
+        null, // No cancel button, or hide it
+        'Error <i class="bi bi-x-octagon-fill ms-1 text-danger"></i>', // Modal Title
+        'secondary' // Confirm button type
+      );
+      // Old alert: alert('Cannot delete message: Missing server ID. Please wait for the message to fully save.');
       console.warn('[Chat][Delete] Missing or temporary message ID on element at index:', messageIndex, targetMessageElement.outerHTML.substring(0,100));
       return;
     }
 
     // --- BRANCH 2: Handle messages with valid server IDs ---
     console.log(`[Chat][Delete] Branch 2: Handling message with valid ID: ${messageIdToDelete} at index ${messageIndex}`);
-    if (!confirm('Delete this message and all messages that follow? This cannot be undone.')) {
+    const confirmedDeletionOfSaved = await showConfirmationModal(
+        'Delete this message and all messages that follow? This cannot be undone.',
+        'Delete',
+        'Cancel',
+        'Confirm Deletion',
+        'danger'
+    );
+
+    if (!confirmedDeletionOfSaved) {
         console.log('[Chat][Delete] User cancelled deletion for message ID:', messageIdToDelete);
-        return;
+        return; // User cancelled
     }
 
     let promptForRegenerationAfterDelete = null;
@@ -644,7 +675,18 @@ const ChatManager = {
           deleteBtn.innerHTML = '<i class="bi bi-trash small"></i>';
           deleteBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (confirm(`Are you sure you want to delete "${conv.title || 'Untitled Conversation'}"?`)) {
+            
+                        // MODIFIED PART:
+                        const confirmed = await showConfirmationModal(
+                          `Are you sure you want to delete "${conv.title || 'Untitled Conversation'}"? This action cannot be undone.`,
+                          'Delete', // Confirm button text
+                          'Cancel', // Cancel button text
+                          'Confirm Deletion', // Modal Title
+                          'danger' // Confirm button type
+                      );
+          
+                      if (confirmed)
+                        {
               try {
                  await this.deleteConversation(conv.id);
                  await this.renderSidebarConversations();
@@ -1049,28 +1091,127 @@ const ChatManager = {
   // --- HELPER METHODS ---
 
   _addDeleteButtonsToLatestMessages(chatDisplay, payload) {
-      if (!chatDisplay) return;
-      const messages = chatDisplay.children;
-      const lastIndex = messages.length - 1;
+    if (!chatDisplay) return;
+    const messages = Array.from(chatDisplay.children); // Re-fetch current messages
+    const lastIndex = messages.length - 1;
 
-      if (lastIndex >= 0) {
-          const aiMsgDiv = messages[lastIndex];
-          if (aiMsgDiv.classList.contains('ai-message')) {
-              const aiId = payload?.aiMessageId || aiMsgDiv.dataset.messageId;
-              if (aiId) aiMsgDiv.dataset.messageId = aiId;
-              this.addDeleteButtonAndListener(aiMsgDiv, lastIndex);
-          }
-      }
-      if (lastIndex >= 1) {
-          const userMsgDiv = messages[lastIndex - 1];
-          if (userMsgDiv.classList.contains('user-message')) {
-              const userId = payload?.userMessageId || userMsgDiv.dataset.messageId;
-               if (userId) userMsgDiv.dataset.messageId = userId;
-              this.addDeleteButtonAndListener(userMsgDiv, lastIndex - 1);
-          }
-      }
-  },
+    // AI message (last element)
+    if (lastIndex >= 0) {
+        const aiMsgDiv = messages[lastIndex];
+        if (aiMsgDiv && aiMsgDiv.classList.contains('ai-message')) {
+            const aiId = payload?.aiMessageId || aiMsgDiv.dataset.messageId;
+            if (aiId) aiMsgDiv.dataset.messageId = aiId; // Ensure ID is set
 
+            // Call the updated helper for the AI message
+            this.addOrUpdateActionButtons(aiMsgDiv, lastIndex, 'ai');
+        }
+    }
+    // User message (second to last element)
+    if (lastIndex >= 1) {
+        const userMsgDiv = messages[lastIndex - 1];
+        if (userMsgDiv && userMsgDiv.classList.contains('user-message')) {
+            const userId = payload?.userMessageId || userMsgDiv.dataset.messageId;
+            if (userId) userMsgDiv.dataset.messageId = userId; // Ensure ID is set
+
+            // Call the updated helper for the User message
+            this.addOrUpdateActionButtons(userMsgDiv, lastIndex - 1, 'user');
+        }
+    }
+},
+
+/**
+ * Helper function to add/update action buttons (copy for AI, delete for all)
+ * to a message element. Ensures the .message-actions container exists.
+ * @param {HTMLElement} messageDiv The message div element.
+ * @param {number} index The index of this message in the chat list.
+ * @param {'user'|'ai'} senderType The type of sender for this message.
+ */
+addOrUpdateActionButtons(messageDiv, index, senderType) {
+  if (!messageDiv) {
+    console.warn('[Chat][Actions] MessageDiv not provided.');
+    return;
+  }
+  if (typeof this.deleteMessageAndAfter !== 'function') {
+    console.error("[Chat][Actions] deleteMessageAndAfter method missing on ChatManager.");
+    return;
+  }
+
+  // Find or create the actions container
+  let actionsDiv = messageDiv.querySelector('.message-actions');
+  if (!actionsDiv) {
+      actionsDiv = document.createElement('div');
+      actionsDiv.className = 'message-actions d-flex align-items-center ms-2';
+      // Append it after the message-content-wrapper if it exists, or just to messageDiv
+      const contentWrapper = messageDiv.querySelector('.message-content-wrapper');
+      if (contentWrapper && contentWrapper.nextSibling) {
+          messageDiv.insertBefore(actionsDiv, contentWrapper.nextSibling);
+      } else {
+          messageDiv.appendChild(actionsDiv);
+      }
+  }
+  // Clear existing buttons inside actionsDiv to prevent duplicates if called multiple times
+  // actionsDiv.innerHTML = ''; // Or more selectively remove only specific button types
+
+  // --- Add Copy Button (only for AI messages) ---
+  if (senderType === 'ai') {
+      // Check if a copy button already exists to avoid duplicates
+      if (!actionsDiv.querySelector('.message-copy-btn')) {
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'btn btn-link btn-sm p-0 message-copy-btn'; // Match chatUI.js
+          copyBtn.title = 'Copy AI response text';
+          copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+          copyBtn.type = 'button'; // Important for forms
+
+          copyBtn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              const markdownContentDiv = messageDiv.querySelector('.markdown-content');
+              if (markdownContentDiv) {
+                  try {
+                      const textToCopy = markdownContentDiv.textContent || '';
+                      await navigator.clipboard.writeText(textToCopy.trim());
+                      copyBtn.innerHTML = '<i class="bi bi-check-lg text-success"></i>'; // Feedback
+                      setTimeout(() => {
+                          copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+                      }, 1500);
+                  } catch (err) {
+                      console.error('[Chat][Actions] Failed to copy AI message content:', err);
+                      // alert('Failed to copy text.'); // Avoid alert here, too intrusive
+                  }
+              }
+          });
+          actionsDiv.appendChild(copyBtn); // Add to our actions container
+      }
+  }
+
+  // --- Add Delete Button (for all messages) ---
+  // Check if a delete button already exists
+  if (!actionsDiv.querySelector('.message-delete-btn')) {
+      const deleteBtn = document.createElement('button');
+      // Add ms-2 class IF a copy button is also present, for spacing
+      const spacingClass = actionsDiv.querySelector('.message-copy-btn') ? ' ms-2' : '';
+      deleteBtn.className = `btn btn-link btn-sm p-0 message-delete-btn${spacingClass}`; // Match chatUI.js
+      deleteBtn.title = 'Delete message and following';
+      deleteBtn.innerHTML = '<i class="bi bi-x-circle"></i>';
+      deleteBtn.type = 'button'; // Important for forms
+
+      // Hover effect for opacity (can be done in CSS too)
+      // For simplicity, we assume CSS handles this based on .chat-message:hover .message-actions
+
+      deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.deleteMessageAndAfter(index).catch(error => {
+              console.error(`[Chat][Actions][Delete] Error during delete for index ${index}:`, error);
+              // alert("An error occurred trying to delete messages."); // Avoid alert
+          });
+      });
+      actionsDiv.appendChild(deleteBtn); // Add to our actions container
+  }
+
+  // Ensure actionsDiv is only present if it has children
+  if (!actionsDiv.hasChildNodes()) {
+      actionsDiv.remove();
+  }
+},
    addDeleteButtonAndListener(messageDiv, index) {
     if (!messageDiv || messageDiv.querySelector('.message-delete-btn')) {
       return;
