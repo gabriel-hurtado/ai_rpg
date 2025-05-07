@@ -118,7 +118,7 @@ logger.info(f"Jinja2 templates configured from '{TEMPLATE_DIR}'.")
 
 
 # --- Root Endpoint / Frontend serving ---
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, name="home")
 async def read_root(
     request: Request,
     # Use the optional_user dependency safely, default to None if auth init failed

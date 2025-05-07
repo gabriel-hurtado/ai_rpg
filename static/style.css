@@ -666,6 +666,80 @@ body.chat-fullscreen-active #chat-context-controls #modify-context-button {
     color: var(--color-bg-dark) !important;
     border-color: var(--color-primary) !important;
 }
+    /* --- Icon Styling & Animation --- */
+    .status-icon-wrapper {
+        margin-bottom: 1.5rem;
+    }
+    .status-icon {
+        font-size: 5rem;
+        line-height: 1;
+        animation: icon-appear 0.5s ease-out forwards;
+        opacity: 0;
+        transform: scale(0.7);
+    }
+    @keyframes icon-appear {
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
 
+    /* --- Card Styling --- */
+    .status-card {
+        /* THESE ARE THE CRUCIAL LINES FOR DARK THEME CARD */
+        background-color: var(--color-bg-light); /* Your dark card background */
+        color: var(--color-text-primary);      /* Your light text for the card */
+        border: 1px solid var(--color-border); /* Your theme's border for cards */
+        /* END CRUCIAL LINES */
 
-/* --- END OF MODAL BUTTON STYLES --- */
+        border-radius: var(--border-radius-lg); /* Or your preferred card radius */
+        /* box-shadow: var(--shadow-md); /* Optional: more pronounced shadow */
+    }
+    .status-card .card-body {
+        padding: 2.5rem;
+    }
+    @media (min-width: 768px) {
+      .status-card .card-body {
+        padding: 3.5rem 3rem;
+      }
+    }
+
+    /* --- Text Styling within Card --- */
+    /* Ensure these colors are applied if not inherited correctly from .status-card color */
+    .status-card h1,
+    .status-card h2,
+    .status-card h3,
+    .status-card h4,
+    .status-card h5,
+    .status-card h6 { /* Includes .display-5 */
+        color: var(--color-text-headings); /* Your theme's heading color */
+    }
+    .status-card p.lead {
+        color: var(--color-text-primary); /* Your theme's primary text color */
+        font-size: 1.15rem;
+        margin-bottom: 1.5rem;
+        font-weight: var(--font-weight-light);
+    }
+    .status-card .text-muted { /* Bootstrap's .text-muted might override, so be specific */
+        color: var(--color-text-secondary) !important; /* Use !important if needed to override Bootstrap's default .text-muted if it's still too light/dark */
+        font-size: 0.95rem;
+    }
+
+    /* --- Navigation Link Styling --- */
+    .status-navigation-link a {
+        color: var(--color-text-secondary); /* Initial color for the link */
+        text-decoration: none;
+        font-weight: var(--font-weight-medium);
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--border-radius-sm);
+        transition: background-color 0.2s ease, color 0.2s ease;
+        display: inline-block;
+    }
+    .status-navigation-link a:hover {
+        color: var(--color-text-primary);
+        background-color: var(--color-bg-lighter); /* Your theme's lighter bg for hover */
+    }
+    .status-navigation-link a i {
+        vertical-align: -0.1em;
+    }

@@ -1,14 +1,79 @@
 <!-- templates/payment_status.html -->
 {% extends "base.html" %}
 
-{% block title %}{{ status }} - Payment Status{% endblock %}
+{% block title %}
+  {% if status == "success" %}
+    Payment Successful!
+  {% elif status == "cancel" %}
+    Payment Cancelled
+  {% else %}
+    {{ status | capitalize | default("Payment Status") }}
+  {% endif %}
+{% endblock %}
+
 
 {% block content %}
-  <section class="text-center py-5">
-    <div class="container">
-      <h1 class="display-4 mb-4">{{ status }}</h1>
-      <p class="lead mb-4">{{ message }}</p>
-      <a href="/" class="btn custom-btn custom-btn-primary">Go back home</a>
+<section class="py-5 d-flex align-items-center" style="min-height: calc(100vh - 133px);"> {# Adjust 133px based on your header + footer height #}
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-7 col-xl-6">
+        <div class="card shadow-sm status-card">
+          <div class="card-body text-center">
+
+            {% if status == "success" %}
+              <div class="status-icon-wrapper">
+                <i class="bi bi-check-circle-fill text-success status-icon"></i>
+              </div>
+              <h1 class="display-5 fw-bold mb-3">Payment Successful!</h1>
+              <p class="lead mb-4">
+                Thank you! Your transaction has been completed.
+              </p>
+              {% if message %}<p class="mb-4">{{ message }}</p>{% endif %}
+              <p class="text-muted mb-4">
+                A confirmation email may be sent to your address shortly.
+              </p>
+              <div class="mt-4 pt-2 status-navigation-link">
+                <a href="{{ request.url_for('home') }}">
+                  <i class="bi bi-arrow-left me-1"></i>Return to Homepage
+                </a>
+              </div>
+
+            {% elif status == "cancel" %}
+              <div class="status-icon-wrapper">
+                <i class="bi bi-slash-circle-fill text-warning status-icon"></i>
+              </div>
+              <h1 class="display-5 fw-bold mb-3">Payment Cancelled</h1>
+              <p class="lead mb-4">
+                Your payment process was cancelled as requested.
+              </p>
+              {% if message %}<p class="mb-4">{{ message }}</p>
+              {% else %}
+                <p class="text-muted mb-4">No charge was made to your account.</p>
+              {% endif %}
+              <div class="mt-4 pt-2 status-navigation-link">
+                <a href="{{ request.url_for('home') }}">
+                  <i class="bi bi-arrow-left me-1"></i>Return to Homepage
+                </a>
+              </div>
+
+            {% else %} {# Fallback for errors / other statuses #}
+              <div class="status-icon-wrapper">
+                <i class="bi bi-x-octagon-fill text-danger status-icon"></i>
+              </div>
+              <h1 class="display-5 fw-bold mb-3">{{ status | capitalize | default("Payment Issue") }}</h1>
+              {% if message %}<p class="lead mb-4">{{ message }}</p>
+              {% else %}
+                <p class="lead mb-4">We encountered an issue processing your payment.</p>
+              {% endif %}
+              <p class="text-muted mb-4">
+                Please try again or contact support if the problem persists.
+              </p>
+            {% endif %}
+
+          </div>
+        </div>
+      </div>
     </div>
-  </section>
+  </div>
+</section>
 {% endblock %}

@@ -71,6 +71,17 @@ export function showConfirmationModal(
       confirmButton.textContent = confirmButtonText;
       cancelButton.textContent = cancelButtonText;
 
+
+      if (cancelButtonText && cancelButtonText.trim() !== '') {
+        cancelButton.textContent = cancelButtonText;
+        cancelButton.style.display = ''; // Ensure it's visible
+        modalElement.querySelector('.modal-footer').style.justifyContent = 'space-between';
+    } else {
+        cancelButton.textContent = '';
+        cancelButton.style.display = 'none'; // Hide the cancel button
+        modalElement.querySelector('.modal-footer').style.justifyContent = 'flex-end';
+    }
+
       // --- Apply CSS Classes for Buttons ---
       let confirmClasses = 'btn custom-btn'; // Base classes
       if (confirmButtonType === 'danger') {
@@ -85,17 +96,20 @@ export function showConfirmationModal(
       }
       confirmButton.className = confirmClasses;
 
-      let cancelClasses = 'btn custom-btn'; // Base classes
-      if (cancelButtonType === 'outline-themed') {
-          cancelClasses += ' custom-btn-outline-themed';
-      } else if (cancelButtonType === 'secondary') {
-          // Assuming you might have .custom-btn-secondary or rely on Bootstrap's .btn-secondary themed by your CSS
-          cancelClasses += ' custom-btn-secondary'; // Or just 'btn-secondary' if .custom-btn-secondary isn't a defined variant
-      } else if (cancelButtonType) {
-          cancelClasses += ` btn-${cancelButtonType}`;
-      }
-      cancelButton.className = cancelClasses;
+      // --- CORRECTED CANCEL BUTTON CLASS LOGIC ---
+      if (cancelButton.style.display !== 'none') { // Only build and apply class if it's visible
+          let currentCancelClasses = 'btn custom-btn'; // Start with base classes for the cancel button
 
+          if (cancelButtonType === 'outline-themed') {
+              currentCancelClasses += ' custom-btn-outline-themed';
+          } else if (cancelButtonType === 'secondary') {
+              currentCancelClasses += ' custom-btn-secondary';
+          } else if (cancelButtonType) { // For other standard bootstrap types
+              currentCancelClasses += ` btn-${cancelButtonType}`;
+          }
+          cancelButton.className = currentCancelClasses; // Apply the fully constructed class string
+      }
+      // --- END CORRECTED CANCEL BUTTON CLASS LOGIC ---
 
       // Get or create a Bootstrap modal instance
       const bsModal = bootstrap.Modal.getOrCreateInstance(modalElement);
